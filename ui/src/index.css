@@ -1,0 +1,36 @@
+body {
+  margin: 0;
+  font-family: sans-serif;
+}
+
+.app-shell {
+  display: grid;
+  grid-template-columns: 250px 1fr;
+  grid-template-rows: 1fr 30px;
+  height: 100vh;
+}
+
+.sidebar {
+  grid-row: 1 / span 2;
+  padding: 10px;
+  border-right: 1px solid #ccc;
+  background: #f9f9f9;
+}
+
+.main-panel {
+  padding: 20px;
+}
+
+.status-bar {
+  grid-column: 2;
+  display: flex;
+  justify-content: space-between;
+  padding: 5px 10px;
+  border-top: 1px solid #ccc;
+  font-size: 12px;
+  background: #eee;
+}
+
+.module ul {
+  margin: 5px 0 10px 15px;
+}
