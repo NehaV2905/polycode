@@ -1,0 +1,7 @@
+{
+  "edges": [
+    ["login", "hash_password"],
+    ["login", "check_user"],
+    ["check_user", "db_query"]
+  ]
+}
