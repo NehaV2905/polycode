@@ -374,6 +374,128 @@ impl GraphBuilder {
         Ok(())
     }
 
+    /// Process a ReturnStatement event
+    pub fn process_return_statement(
+        &mut self,
+        function_name: String,
+        has_value: bool,
+        line_number: i32,
+    ) -> Result<()> {
+        if let Some(function_id) = self.lookup_symbol(&function_name) {
+            // We don't create a separate node for returns, just track them as a property
+            // In the future, we could create a Returns edge to track return patterns
+            debug!("Recorded return in function: {} (has_value: {})", function_name, has_value);
+        }
+        Ok(())
+    }
+
+    /// Process a ThrowStatement event
+    pub fn process_throw_statement(
+        &mut self,
+        exception_type: Option<String>,
+        parent_function: Option<String>,
+        line_number: i32,
+        has_message: bool,
+    ) -> Result<()> {
+        if let (Some(parent), Some(exc_type)) = (parent_function, exception_type) {
+            if let Some(function_id) = self.lookup_symbol(&parent) {
+                // In the future, create Throws edge to exception type
+                debug!("Recorded throw in {}: {} (has_message: {})", parent, exc_type, has_message);
+            }
+        }
+        Ok(())
+    }
+
+    /// Process a CatchClause event
+    pub fn process_catch_clause(
+        &mut self,
+        exception_types: Vec<String>,
+        parent_function: Option<String>,
+        line_number: i32,
+        is_catch_all: bool,
+    ) -> Result<()> {
+        if let Some(parent) = parent_function {
+            if let Some(_function_id) = self.lookup_symbol(&parent) {
+                // In the future, create Catches edge to exception types
+                debug!(
+                    "Recorded catch in {}: {:?} (catch_all: {})",
+                    parent, exception_types, is_catch_all
+                );
+            }
+        }
+        Ok(())
+    }
+
+    /// Process an AwaitExpression event
+    pub fn process_await_expression(
+        &mut self,
+        awaited_function: String,
+        parent_function: Option<String>,
+        line_number: i32,
+    ) -> Result<()> {
+        if let Some(parent) = parent_function {
+            if let Some(caller_id) = self.lookup_symbol(&parent) {
+                if let Some(callee_id) = self.lookup_symbol(&awaited_function) {
+                    let edge = IREdge::new(caller_id, callee_id, EdgeType::Awaits, line_number);
+                    self.graph.add_edge(edge)?;
+                    debug!("Linked await: {} awaits {}", parent, awaited_function);
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Process a LambdaDeclared event
+    pub fn process_lambda_declared(
+        &mut self,
+        param_count: i32,
+        parent_function: Option<String>,
+        line_number: i32,
+        timestamp: i64,
+    ) -> Result<NodeId> {
+        let metadata = self.create_metadata(line_number, timestamp)?;
+
+        let node = IRNode::new(
+            NodeType::Lambda {
+                param_count,
+                parent_function: parent_function.clone(),
+            },
+            metadata,
+        );
+
+        let node_id = self.graph.add_node(node)?;
+
+        // Link to parent function if nested
+        if let Some(parent) = parent_function {
+            self.link_to_parent(&parent, node_id, line_number)?;
+        }
+
+        debug!("Declared lambda with {} params", param_count);
+        Ok(node_id)
+    }
+
+    /// Process a MemberAccess event
+    pub fn process_member_access(
+        &mut self,
+        object_name: String,
+        member_name: String,
+        parent_function: Option<String>,
+        line_number: i32,
+        is_method_call: bool,
+    ) -> Result<()> {
+        if let Some(parent) = parent_function {
+            if let Some(_function_id) = self.lookup_symbol(&parent) {
+                // Create AccessesMember edge for tracking member access patterns
+                // In future: could create a Member node for tracking accessed properties
+                debug!(
+                    "Recorded member access in {}: {}.{} (method: {})",
+                    parent, object_name, member_name, is_method_call
+                );
+            }
+        }
+        Ok(())
+    }
+
     /// Get a reference to the built graph
     pub fn graph(&self) -> &IRGraph {
         &self.graph

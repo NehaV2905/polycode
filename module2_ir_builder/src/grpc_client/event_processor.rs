@@ -130,34 +130,87 @@ pub fn process_event(builder: &mut GraphBuilder, event: ir_events::IrEvent) -> R
             )?;
         }
 
-        Some(Event::ReturnStatement(_)) => {
-            // TODO: Track return statements if needed
-            debug!("Skipping ReturnStatement (not implemented yet)");
+        Some(Event::ReturnStatement(e)) => {
+            debug!("Processing ReturnStatement in: {}", e.function_name);
+            builder.process_return_statement(
+                e.function_name,
+                e.has_value,
+                e.line_number,
+            )?;
         }
 
-        Some(Event::ThrowStatement(_)) => {
-            // TODO: Track exception throws
-            debug!("Skipping ThrowStatement (not implemented yet)");
+        Some(Event::ThrowStatement(e)) => {
+            debug!("Processing ThrowStatement: {}", e.exception_type);
+            builder.process_throw_statement(
+                if e.exception_type.is_empty() {
+                    None
+                } else {
+                    Some(e.exception_type)
+                },
+                if e.parent_function.is_empty() {
+                    None
+                } else {
+                    Some(e.parent_function)
+                },
+                e.line_number,
+                e.has_message,
+            )?;
         }
 
-        Some(Event::CatchClause(_)) => {
-            // TODO: Track exception handlers
-            debug!("Skipping CatchClause (not implemented yet)");
+        Some(Event::CatchClause(e)) => {
+            debug!("Processing CatchClause in: {}", e.parent_function);
+            builder.process_catch_clause(
+                e.exception_types,
+                if e.parent_function.is_empty() {
+                    None
+                } else {
+                    Some(e.parent_function)
+                },
+                e.line_number,
+                e.is_catch_all,
+            )?;
         }
 
-        Some(Event::AwaitExpression(_)) => {
-            // TODO: Track await expressions
-            debug!("Skipping AwaitExpression (not implemented yet)");
+        Some(Event::AwaitExpression(e)) => {
+            debug!("Processing AwaitExpression: {}", e.awaited_function);
+            builder.process_await_expression(
+                e.awaited_function,
+                if e.parent_function.is_empty() {
+                    None
+                } else {
+                    Some(e.parent_function)
+                },
+                e.line_number,
+            )?;
         }
 
-        Some(Event::LambdaDeclared(_)) => {
-            // TODO: Track lambda functions
-            debug!("Skipping LambdaDeclared (not implemented yet)");
+        Some(Event::LambdaDeclared(e)) => {
+            debug!("Processing LambdaDeclared");
+            builder.process_lambda_declared(
+                e.param_count,
+                if e.parent_function.is_empty() {
+                    None
+                } else {
+                    Some(e.parent_function)
+                },
+                e.line_number,
+                timestamp,
+            )?;
         }
 
-        Some(Event::MemberAccess(_)) => {
-            // TODO: Track member access
-            debug!("Skipping MemberAccess (not implemented yet)");
+        Some(Event::MemberAccess(e)) => {
+            debug!("Processing MemberAccess: {}.{}", e.object_name, e.member_name);
+            builder.process_member_access(
+                e.object_name,
+                e.member_name,
+                if e.parent_function.is_empty() {
+                    None
+                } else {
+                    Some(e.parent_function)
+                },
+                e.line_number,
+                e.is_method_call,
+            )?;
         }
 
         None => {
