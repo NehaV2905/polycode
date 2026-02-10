@@ -5,7 +5,7 @@ mod ir;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use tracing::{error, info};
+use tracing::info;
 use tracing_subscriber;
 
 use api::GraphQuery;
@@ -107,15 +107,17 @@ async fn main() -> Result<()> {
         }
 
         Commands::Query { query_type } => {
-            error!("Query command not yet implemented");
-            error!("You need to first build a graph using the 'connect' command");
-            // TODO: Implement persistent graph storage and querying
+            info!("Query command - note: graph persistence not yet implemented");
+            info!("To use queries, first run: ir-builder connect --file <path>");
+            info!("Then the graph will be displayed with example queries");
+            handle_query(query_type).await?;
         }
 
         Commands::Export { output } => {
-            error!("Export command not yet implemented");
-            error!("You need to first build a graph using the 'connect' command");
-            // TODO: Implement graph export
+            info!("Export command - graph persistence not yet fully implemented");
+            info!("To use export, first run: ir-builder connect --file <path>");
+            info!("The graph output will be shown in the logs above");
+            handle_export(&output).await?;
         }
     }
 
@@ -170,5 +172,38 @@ async fn connect_and_build(server: &str, file: &str, language: &str) -> Result<(
         }
     }
 
+    Ok(())
+}
+
+async fn handle_query(query_type: QueryType) -> Result<()> {
+    match query_type {
+        QueryType::Callers { function, file_path } => {
+            info!("Would query: Find all callers of '{}' in {}", function, file_path);
+            info!("Graph persistence needed for this feature");
+        }
+        QueryType::Callees { function, file_path } => {
+            info!("Would query: Find all callees of '{}' in {}", function, file_path);
+            info!("Graph persistence needed for this feature");
+        }
+        QueryType::Dependencies { file_path } => {
+            info!("Would query: Find dependencies of {}", file_path);
+            info!("Graph persistence needed for this feature");
+        }
+        QueryType::Unused { file_path } => {
+            info!("Would query: Find unused functions in {}", file_path);
+            info!("Graph persistence needed for this feature");
+        }
+        QueryType::Stats => {
+            info!("Would display: Graph statistics");
+            info!("Graph persistence needed for this feature");
+        }
+    }
+    Ok(())
+}
+
+async fn handle_export(output: &str) -> Result<()> {
+    info!("Would export graph to: {}", output);
+    info!("Graph persistence needed for this feature");
+    info!("Once implemented, this will save the IR graph as JSON");
     Ok(())
 }
