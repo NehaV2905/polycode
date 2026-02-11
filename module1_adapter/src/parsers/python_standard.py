@@ -1,33 +1,15 @@
 """
-Parser Logic Module - Python AST Walker
-
-This module walks Python ASTs and extracts IR-relevant facts.
-It asks boring questions only. No analysis, no cleverness.
+Python Standard Parser
+Uses the built-in `ast` module.
 """
 
 import ast
-from typing import List, Dict, Any, Optional
-from datetime import datetime
-from pathlib import Path
-
-
-class IRFact:
-    """Represents a single observed fact about the code."""
-    def __init__(self, fact_type: str, data: Dict[str, Any], line_number: int):
-        self.fact_type = fact_type
-        self.data = data
-        self.line_number = line_number
-        self.timestamp = datetime.now()
-
-    def __repr__(self):
-        return f"IRFact({self.fact_type}, line={self.line_number}, data={self.data})"
-
+from typing import List, Optional
+from .base import BaseParser, IRFact
 
 class PythonASTWalker(ast.NodeVisitor):
     """
     Walks a Python AST and extracts IR-relevant facts.
-    
-    Philosophy: Stay dumb. Observe and report only.
     """
     
     def __init__(self, source_file: str):
@@ -52,15 +34,10 @@ class PythonASTWalker(ast.NodeVisitor):
         )
         self.facts.append(fact)
         
-        # Push onto scope stack
         previous_function = self.current_function
         self.current_function = node.name
         self.scope_stack.append(node.name)
-        
-        # Visit children
         self.generic_visit(node)
-        
-        # Pop from scope stack
         self.scope_stack.pop()
         self.current_function = previous_function
     
@@ -79,23 +56,16 @@ class PythonASTWalker(ast.NodeVisitor):
         )
         self.facts.append(fact)
         
-        # Push onto scope stack
         previous_function = self.current_function
         self.current_function = node.name
         self.scope_stack.append(node.name)
-        
-        # Visit children
         self.generic_visit(node)
-        
-        # Pop from scope stack
         self.scope_stack.pop()
         self.current_function = previous_function
     
     def visit_ClassDef(self, node: ast.ClassDef):
         """Extract class declaration."""
-        base_classes = [
-            self._get_name(base) for base in node.bases
-        ]
+        base_classes = [self._get_name(base) for base in node.bases]
         
         fact = IRFact(
             fact_type="ClassDeclared",
@@ -107,15 +77,10 @@ class PythonASTWalker(ast.NodeVisitor):
         )
         self.facts.append(fact)
         
-        # Push onto scope stack
         previous_class = self.current_class
         self.current_class = node.name
         self.scope_stack.append(node.name)
-        
-        # Visit children
         self.generic_visit(node)
-        
-        # Pop from scope stack
         self.scope_stack.pop()
         self.current_class = previous_class
     
@@ -133,8 +98,6 @@ class PythonASTWalker(ast.NodeVisitor):
             line_number=node.lineno
         )
         self.facts.append(fact)
-        
-        # Visit children
         self.generic_visit(node)
     
     def visit_Return(self, node: ast.Return):
@@ -148,8 +111,6 @@ class PythonASTWalker(ast.NodeVisitor):
             line_number=node.lineno
         )
         self.facts.append(fact)
-        
-        # Visit children
         self.generic_visit(node)
     
     def visit_Import(self, node: ast.Import):
@@ -165,8 +126,6 @@ class PythonASTWalker(ast.NodeVisitor):
                 line_number=node.lineno
             )
             self.facts.append(fact)
-        
-        # Visit children
         self.generic_visit(node)
     
     def visit_ImportFrom(self, node: ast.ImportFrom):
@@ -185,8 +144,6 @@ class PythonASTWalker(ast.NodeVisitor):
             line_number=node.lineno
         )
         self.facts.append(fact)
-        
-        # Visit children
         self.generic_visit(node)
     
     def visit_If(self, node: ast.If):
@@ -201,8 +158,6 @@ class PythonASTWalker(ast.NodeVisitor):
             line_number=node.lineno
         )
         self.facts.append(fact)
-        
-        # Visit children
         self.generic_visit(node)
     
     def visit_While(self, node: ast.While):
@@ -217,8 +172,6 @@ class PythonASTWalker(ast.NodeVisitor):
             line_number=node.lineno
         )
         self.facts.append(fact)
-        
-        # Visit children
         self.generic_visit(node)
     
     def visit_For(self, node: ast.For):
@@ -233,8 +186,6 @@ class PythonASTWalker(ast.NodeVisitor):
             line_number=node.lineno
         )
         self.facts.append(fact)
-        
-        # Visit children
         self.generic_visit(node)
     
     def visit_Try(self, node: ast.Try):
@@ -249,8 +200,6 @@ class PythonASTWalker(ast.NodeVisitor):
             line_number=node.lineno
         )
         self.facts.append(fact)
-        
-        # Visit children
         self.generic_visit(node)
     
     def visit_Assign(self, node: ast.Assign):
@@ -268,8 +217,6 @@ class PythonASTWalker(ast.NodeVisitor):
                     line_number=node.lineno
                 )
                 self.facts.append(fact)
-        
-        # Visit children
         self.generic_visit(node)
     
     def visit_Lambda(self, node: ast.Lambda):
@@ -283,8 +230,6 @@ class PythonASTWalker(ast.NodeVisitor):
             line_number=node.lineno
         )
         self.facts.append(fact)
-        
-        # Visit children
         self.generic_visit(node)
     
     def visit_Raise(self, node: ast.Raise):
@@ -294,7 +239,6 @@ class PythonASTWalker(ast.NodeVisitor):
         
         if node.exc:
             exception_type = self._get_name(node.exc)
-            # Check if exception has arguments (message)
             if isinstance(node.exc, ast.Call) and node.exc.args:
                 has_message = True
         
@@ -308,8 +252,6 @@ class PythonASTWalker(ast.NodeVisitor):
             line_number=node.lineno
         )
         self.facts.append(fact)
-        
-        # Visit children
         self.generic_visit(node)
     
     def visit_ExceptHandler(self, node: ast.ExceptHandler):
@@ -318,13 +260,11 @@ class PythonASTWalker(ast.NodeVisitor):
         is_catch_all = False
         
         if node.type:
-            # Specific exception type(s)
             if isinstance(node.type, ast.Tuple):
                 exception_types = [self._get_name(exc) for exc in node.type.elts]
             else:
                 exception_types = [self._get_name(node.type)]
         else:
-            # Bare except: catches all
             is_catch_all = True
         
         fact = IRFact(
@@ -337,8 +277,6 @@ class PythonASTWalker(ast.NodeVisitor):
             line_number=node.lineno
         )
         self.facts.append(fact)
-        
-        # Visit children
         self.generic_visit(node)
     
     def visit_Attribute(self, node: ast.Attribute):
@@ -346,22 +284,17 @@ class PythonASTWalker(ast.NodeVisitor):
         object_name = self._get_name(node.value)
         member_name = node.attr
         
-        # Check if this is part of a call (method call vs property access)
-        # We'll mark it as property access by default; if it's a method call,
-        # visit_Call will also detect it
         fact = IRFact(
             fact_type="MemberAccess",
             data={
                 "object_name": object_name,
                 "member_name": member_name,
                 "parent_function": self.current_function or "<module>",
-                "is_method_call": False,  # Default to property access
+                "is_method_call": False,
             },
             line_number=node.lineno
         )
         self.facts.append(fact)
-        
-        # Visit children
         self.generic_visit(node)
     
     def visit_Await(self, node: ast.Await):
@@ -382,95 +315,32 @@ class PythonASTWalker(ast.NodeVisitor):
             line_number=node.lineno
         )
         self.facts.append(fact)
-        
-        # Visit children
         self.generic_visit(node)
-    
-    # Note: Python doesn't have native Interface/Enum syntax in the same way
-    # as Java/TypeScript. For Python:
-    # - Interfaces are typically ABC (Abstract Base Classes) or Protocols
-    # - Enums use the enum.Enum class
-    # We could detect these, but it requires class decorator/base class inspection.
-    # For now, these are detected as regular ClassDeclared.
-    # Future enhancement: detect ABC subclasses and enum.Enum subclasses
-    
+
     def _get_name(self, node) -> str:
         """Extract name from various node types."""
         if isinstance(node, ast.Name):
             return node.id
         elif isinstance(node, ast.Attribute):
-            # For things like obj.method, return "obj.method"
             value_name = self._get_name(node.value)
             return f"{value_name}.{node.attr}"
         elif isinstance(node, ast.Call):
-            # For chained calls like foo()(), return the function name
             return self._get_name(node.func)
         else:
             return "<unknown>"
 
 
-def extract_facts_from_source(source_code: str, file_path: str) -> List[IRFact]:
+class PythonStandardParser(BaseParser):
     """
-    Parse Python source code and extract IR facts.
-    
-    Args:
-        source_code: The Python source code as a string
-        file_path: Path to the source file (for metadata)
-    
-    Returns:
-        List of IRFact objects
+    Implementation of BaseParser for Python using standard AST.
     """
-    try:
-        tree = ast.parse(source_code, filename=file_path)
-        walker = PythonASTWalker(file_path)
-        walker.visit(tree)
-        return walker.facts
-    except SyntaxError as e:
-        print(f"Syntax error in {file_path}: {e}")
-        return []
-
-
-def extract_facts_from_file(file_path: str) -> List[IRFact]:
-    """
-    Read a Python file and extract IR facts.
     
-    Cross-platform compatible using pathlib.
-    
-    Args:
-        file_path: Path to the Python file (string or Path object)
-    
-    Returns:
-        List of IRFact objects
-    """
-    try:
-        # Convert to Path object for cross-platform handling
-        path = Path(file_path)
-        
-        # Read file with UTF-8 encoding (cross-platform)
-        source_code = path.read_text(encoding='utf-8')
-        
-        return extract_facts_from_source(source_code, str(path))
-    except FileNotFoundError:
-        print(f"File not found: {file_path}")
-        return []
-    except Exception as e:
-        print(f"Error reading {file_path}: {e}")
-        return []
-
-
-if __name__ == "__main__":
-    # Simple test
-    test_code = '''
-def login(user, password):
-    hashed = hash_password(password)
-    return check_user(user, hashed)
-
-class UserManager:
-    def create(self, name):
-        if name:
-            return User(name)
-'''
-    
-    facts = extract_facts_from_source(test_code, "test.py")
-    for fact in facts:
-        print(fact)
+    def parse(self, source_code: str, file_path: str) -> List[IRFact]:
+        try:
+            tree = ast.parse(source_code, filename=file_path)
+            walker = PythonASTWalker(file_path)
+            walker.visit(tree)
+            return walker.facts
+        except SyntaxError as e:
+            print(f"Syntax error in {file_path}: {e}")
+            return []

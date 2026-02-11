@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+*.tmp
+
+# Debug files
+debug_*.py
+debug_*.txt
+ruby_ast.txt
+test_debug.py
+
+# Logs
+*.log
+
+# Generated protobuf
+# Keep the generated files for now
+# src/ir_events_pb2.py
+# src/ir_events_pb2_grpc.py

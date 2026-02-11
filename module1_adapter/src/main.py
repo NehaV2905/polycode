@@ -13,6 +13,11 @@ import asyncio
 import sys
 import os
 import argparse
+import warnings
+
+# Suppress warnings from tree-sitter
+warnings.filterwarnings("ignore", category=FutureWarning, module="tree_sitter")
+
 from pathlib import Path
 from typing import Optional
 from urllib.parse import unquote, urlparse
@@ -38,8 +43,9 @@ except ImportError:
 
 
 # Local modules
-from parser_logic import extract_facts_from_source, extract_facts_from_file
+from parsers import get_parser
 from transport import IREventPublisher, start_grpc_server
+
 
 
 class LanguageAdapter:
@@ -47,7 +53,7 @@ class LanguageAdapter:
     Main adapter class that coordinates LSP listening, parsing, and event emission.
     """
     
-    def __init__(self, language: str = "python", grpc_port: int = 50051):
+    def __init__(self, language: str = None, grpc_port: int = 50051):
         self.language = language
         self.grpc_port = grpc_port
         self.publisher = IREventPublisher(language=language)
@@ -95,8 +101,15 @@ class LanguageAdapter:
             # Re-process the file
             file_path = self._uri_to_path(params.text_document.uri)
             if file_path:
-                facts = extract_facts_from_file(file_path)
-                self._emit_facts(facts, file_path)
+                try:
+                    from pathlib import Path
+                    content = Path(file_path).read_text(encoding='utf-8')
+                    parser = get_parser(language=self.language, file_path=file_path)
+                    facts = parser.parse(content, file_path)
+                    self._emit_facts(facts, file_path)
+                except Exception as e:
+                    print(f"Error processing saved file: {e}")
+
     
     async def _process_document(self, uri: str, content: str):
         """
@@ -111,10 +124,14 @@ class LanguageAdapter:
             return
         
         print(f"[Parser] Processing {file_path}...")
-        facts = extract_facts_from_source(content, file_path)
+        
+        # Get appropriate parser
+        parser = get_parser(language=self.language, file_path=file_path)
+        facts = parser.parse(content, file_path)
         
         print(f"[Parser] Extracted {len(facts)} facts")
         self._emit_facts(facts, file_path)
+
     
     def _emit_facts(self, facts, file_path: str):
         """
@@ -201,7 +218,7 @@ class LanguageAdapter:
                 self.grpc_server.stop(0)
 
 
-def standalone_file_mode(file_path: str, language: str = "python"):
+def standalone_file_mode(file_path: str, language: str = None):
     """
     Process a single file without LSP (for testing).
     
@@ -212,7 +229,16 @@ def standalone_file_mode(file_path: str, language: str = "python"):
     print(f"[Standalone] Processing {file_path}...")
     
     # Extract facts
-    facts = extract_facts_from_file(file_path)
+    parser = get_parser(language=language, file_path=file_path)
+    
+    # Read file content
+    try:
+        from pathlib import Path
+        content = Path(file_path).read_text(encoding='utf-8')
+        facts = parser.parse(content, file_path)
+    except Exception as e:
+        print(f"Error reading/parsing file: {e}")
+        facts = []
     
     print(f"\n{'='*60}")
     print(f"Extracted {len(facts)} IR facts from {file_path}")
@@ -249,8 +275,8 @@ def main():
     parser.add_argument(
         "--language",
         type=str,
-        default="python",
-        help="Programming language (default: python)"
+        default=None,
+        help="Programming language (default: auto-detect or python)"
     )
     parser.add_argument(
         "--grpc-port",
