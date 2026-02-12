@@ -15,12 +15,24 @@ message SourceMetadata {
   Timestamp timestamp = 3;
 }
 
+// Detailed parameter information
+message Parameter {
+  string name = 1;
+  string type = 2;  // e.g., "int", "String", "*MyStruct", empty if untyped
+}
+
 // Event: Function declaration observed
 message FunctionDeclared {
   string name = 1;
   int32 param_count = 2;
   int32 line_number = 3;
   string parent_scope = 4;  // Empty string for top-level, class name for methods
+  
+  // Enhanced metadata
+  string return_type = 5;  // Return type annotation
+  repeated string decorators = 6;  // @annotations, #[attributes], decorators
+  repeated Parameter parameters = 7;  // Detailed parameter list with types
+  string docstring = 8;  // Documentation string
 }
 
 // Event: Function call observed
@@ -66,6 +78,10 @@ message ClassDeclared {
   string name = 1;
   repeated string base_classes = 2;
   int32 line_number = 3;
+  
+  // Enhanced metadata
+  repeated string decorators = 4;  // Class-level annotations/decorators
+  string docstring = 5;  // Class documentation
 }
 
 // Event: Variable assignment observed

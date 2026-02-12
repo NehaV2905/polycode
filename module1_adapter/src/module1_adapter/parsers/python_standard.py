@@ -23,12 +23,36 @@ class PythonASTWalker(ast.NodeVisitor):
         """Extract function declaration."""
         parent_scope = self.current_class or ""
         
+        # Extract decorators
+        decorators = [self._get_decorator_name(dec) for dec in node.decorator_list]
+        
+        # Extract return type
+        return_type = ""
+        if node.returns:
+            return_type = ast.unparse(node.returns)
+        
+        # Extract parameters with types
+        parameters = []
+        for arg in node.args.args:
+            param = {
+                "name": arg.arg,
+                "type": ast.unparse(arg.annotation) if arg.annotation else ""
+            }
+            parameters.append(param)
+        
+        # Extract docstring
+        docstring = ast.get_docstring(node) or ""
+        
         fact = IRFact(
             fact_type="FunctionDeclared",
             data={
                 "name": node.name,
                 "param_count": len(node.args.args),
                 "parent_scope": parent_scope,
+                "return_type": return_type,
+                "decorators": decorators,
+                "parameters": parameters,
+                "docstring": docstring,
             },
             line_number=node.lineno
         )
@@ -45,12 +69,36 @@ class PythonASTWalker(ast.NodeVisitor):
         """Extract async function declaration."""
         parent_scope = self.current_class or ""
         
+        # Extract decorators
+        decorators = [self._get_decorator_name(dec) for dec in node.decorator_list]
+        
+        # Extract return type
+        return_type = ""
+        if node.returns:
+            return_type = ast.unparse(node.returns)
+        
+        # Extract parameters with types
+        parameters = []
+        for arg in node.args.args:
+            param = {
+                "name": arg.arg,
+                "type": ast.unparse(arg.annotation) if arg.annotation else ""
+            }
+            parameters.append(param)
+        
+        # Extract docstring
+        docstring = ast.get_docstring(node) or ""
+        
         fact = IRFact(
             fact_type="AsyncFunctionDeclared",
             data={
                 "name": node.name,
                 "param_count": len(node.args.args),
                 "parent_scope": parent_scope,
+                "return_type": return_type,
+                "decorators": decorators,
+                "parameters": parameters,
+                "docstring": docstring,
             },
             line_number=node.lineno
         )
@@ -67,11 +115,19 @@ class PythonASTWalker(ast.NodeVisitor):
         """Extract class declaration."""
         base_classes = [self._get_name(base) for base in node.bases]
         
+        # Extract decorators
+        decorators = [self._get_decorator_name(dec) for dec in node.decorator_list]
+        
+        # Extract docstring
+        docstring = ast.get_docstring(node) or ""
+        
         fact = IRFact(
             fact_type="ClassDeclared",
             data={
                 "name": node.name,
                 "base_classes": base_classes,
+                "decorators": decorators,
+                "docstring": docstring,
             },
             line_number=node.lineno
         )
@@ -328,6 +384,18 @@ class PythonASTWalker(ast.NodeVisitor):
             return self._get_name(node.func)
         else:
             return "<unknown>"
+    
+    def _get_decorator_name(self, node) -> str:
+        """Extract decorator name from decorator node."""
+        if isinstance(node, ast.Name):
+            return node.id
+        elif isinstance(node, ast.Attribute):
+            return ast.unparse(node)
+        elif isinstance(node, ast.Call):
+            # Decorator with arguments like @decorator(arg)
+            return ast.unparse(node.func)
+        else:
+            return ast.unparse(node)
 
 
 class PythonStandardParser(BaseParser):

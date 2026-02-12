@@ -82,6 +82,41 @@ class TreeSitterParser(BaseParser):
     def _get_text(self, node, source_code: str) -> str:
         """Helper to get text content of a node."""
         return source_code.encode('utf8')[node.start_byte:node.end_byte].decode('utf8')
+    
+    def _get_preceding_comment(self, node, source_code: str) -> str:
+        """
+        Extract comment block immediately before a node as docstring.
+        Looks at previous siblings for comments.
+        """
+        if not node.parent:
+            return ""
+        
+        # Find this node's index among siblings
+        siblings = node.parent.children
+        node_index = -1
+        for i, sibling in enumerate(siblings):
+            if sibling == node:
+                node_index = i
+                break
+        
+        if node_index <= 0:
+            return ""
+        
+        # Walk backwards collecting comments
+        comments = []
+        for i in range(node_index - 1, -1, -1):
+            sibling = siblings[i]
+            if sibling.type in ["comment", "line_comment", "block_comment"]:
+                text = self._get_text(sibling, source_code).strip()
+                # Remove comment markers
+                text = text.lstrip('#').lstrip('//').lstrip('/*').rstrip('*/').strip()
+                comments.insert(0, text)
+            elif sibling.type not in ["\n", "newline", " "]:
+                # Stop at non-comment, non-whitespace
+                break
+        
+        return " ".join(comments) if comments else ""
+
 
     def _extract_scope_name(self, node, source: str) -> str:
         """Extract name from a scope-creating node."""
@@ -193,13 +228,61 @@ class TreeSitterParser(BaseParser):
         
         params_node = node.child_by_field_name("parameters")
         param_count = 0
+        parameters = []
         if params_node:
-             param_count = sum(1 for child in params_node.children if child.type == "identifier" or child.type == "typed_parameter")
+            for child in params_node.children:
+                if child.type == "identifier":
+                    param_count += 1
+                    parameters.append({"name": self._get_text(child, source), "type": ""})
+                elif child.type == "typed_parameter":
+                    param_count += 1
+                    param_name = ""
+                    param_type = ""
+                    for subchild in child.children:
+                        if subchild.type == "identifier":
+                            param_name = self._get_text(subchild, source)
+                        elif subchild.type == "type":
+                            param_type = self._get_text(subchild, source)
+                    parameters.append({"name": param_name, "type": param_type})
+        
+        # Extract return type
+        return_type = ""
+        return_type_node = node.child_by_field_name("return_type")
+        if return_type_node:
+            return_type = self._get_text(return_type_node, source)
+        
+        # Extract decorators
+        decorators = []
+        # In tree-sitter-python, decorators are often children of a parent 'decorated_definition' 
+        # node if they exist.
+        search_node = node
+        if node.parent and node.parent.type == "decorated_definition":
+            search_node = node.parent
+            
+        for child in search_node.children:
+            if child.type == "decorator":
+                dec_text = self._get_text(child, source)
+                # Remove @ symbol
+                decorators.append(dec_text.lstrip('@').strip())
+        
+        # Extract docstring (first string in body)
+        docstring = ""
+        body = node.child_by_field_name("body")
+        if body and body.child_count > 0:
+            first_stmt = body.children[0]
+            if first_stmt.type == "expression_statement":
+                expr = first_stmt.children[0] if first_stmt.child_count > 0 else None
+                if expr and expr.type == "string":
+                    docstring = self._get_text(expr, source).strip('"\'\'\'\'"""')
 
         return IRFact("FunctionDeclared", {
             "name": name,
             "param_count": param_count,
-            "parent_scope": scope
+            "parent_scope": scope,
+            "return_type": return_type,
+            "decorators": decorators,
+            "parameters": parameters,
+            "docstring": docstring,
         }, node.start_point[0] + 1)
 
     def _handle_call_python(self, node, source: str, scope: str) -> IRFact:
@@ -271,9 +354,32 @@ class TreeSitterParser(BaseParser):
                 if child.type == "identifier" or child.type == "attribute":
                     base_classes.append(self._get_text(child, source))
         
+        # Extract decorators
+        decorators = []
+        search_node = node
+        if node.parent and node.parent.type == "decorated_definition":
+            search_node = node.parent
+            
+        for child in search_node.children:
+            if child.type == "decorator":
+                dec_text = self._get_text(child, source)
+                decorators.append(dec_text.lstrip('@').strip())
+        
+        # Extract docstring
+        docstring = ""
+        body = node.child_by_field_name("body")
+        if body and body.child_count > 0:
+            first_stmt = body.children[0]
+            if first_stmt.type == "expression_statement":
+                expr = first_stmt.children[0] if first_stmt.child_count > 0 else None
+                if expr and expr.type == "string":
+                    docstring = self._get_text(expr, source).strip('"\'\'\'\'"""')
+        
         return IRFact("ClassDeclared", {
             "name": name,
-            "base_classes": base_classes
+            "base_classes": base_classes,
+            "decorators": decorators,
+            "docstring": docstring,
         }, node.start_point[0] + 1)
 
     def _handle_if_python(self, node, source: str, scope: str) -> IRFact:
@@ -420,13 +526,49 @@ class TreeSitterParser(BaseParser):
         
         params_node = node.child_by_field_name("parameters")
         param_count = 0
+        parameters = []
         if params_node:
-             param_count = sum(1 for child in params_node.children if child.type == "parameter_declaration")
+            for child in params_node.children:
+                if child.type == "parameter_declaration":
+                    param_count += 1
+                    # Go params: name type or just type
+                    param_name = ""
+                    param_type = ""
+                    for subchild in child.children:
+                        if subchild.type == "identifier":
+                            if not param_name:
+                                param_name = self._get_text(subchild, source)
+                        elif subchild.type in ["type_identifier", "pointer_type", "slice_type", "array_type"]:
+                            param_type = self._get_text(subchild, source)
+                    if not param_name:
+                        param_name = f"param{param_count}"
+                    parameters.append({"name": param_name, "type": param_type})
+        
+        # Extract return type
+        return_type = ""
+        result_node = node.child_by_field_name("result")
+        if result_node:
+            if result_node.type in ["type_identifier", "pointer_type"]:
+                return_type = self._get_text(result_node, source)
+            elif result_node.type == "parameter_list":
+                # Multiple return values
+                types = []
+                for child in result_node.children:
+                    if child.type in ["type_identifier", "parameter_declaration"]:
+                        types.append(self._get_text(child, source))
+                return_type = ", ".join(types) if types else ""
+        
+        # Extract Go doc comments
+        docstring = self._get_preceding_comment(node, source)
 
         return IRFact("FunctionDeclared", {
             "name": name,
             "param_count": param_count,
-            "parent_scope": scope
+            "parent_scope": scope,
+            "return_type": return_type,
+            "decorators": [],  # Go doesn't have decorators
+            "parameters": parameters,
+            "docstring": docstring,
         }, node.start_point[0] + 1)
 
     def _handle_call_go(self, node, source: str, scope: str) -> IRFact:
@@ -610,13 +752,46 @@ class TreeSitterParser(BaseParser):
         
         params_node = node.child_by_field_name("parameters")
         param_count = 0
+        parameters = []
         if params_node:
-             param_count = sum(1 for child in params_node.children if child.type == "formal_parameter")
+            for child in params_node.children:
+                if child.type == "formal_parameter":
+                    param_count += 1
+                    param_name = ""
+                    param_type = ""
+                    type_node = child.child_by_field_name("type")
+                    name_param = child.child_by_field_name("name")
+                    if type_node:
+                        param_type = self._get_text(type_node, source)
+                    if name_param:
+                        param_name = self._get_text(name_param, source)
+                    parameters.append({"name": param_name, "type": param_type})
+        
+        # Extract return type
+        return_type = ""
+        type_node = node.child_by_field_name("type")
+        if type_node:
+            return_type = self._get_text(type_node, source)
+        elif any(child.type == "void_type" for child in node.children):
+            return_type = "void"
+        
+        # Extract annotations
+        decorators = []
+        for child in node.children:
+            if child.type in ["marker_annotation", "annotation"]:
+                decorators.append(self._get_text(child, source))
+        
+        # Extract Javadoc
+        docstring = self._get_preceding_comment(node, source)
 
         return IRFact("FunctionDeclared", {
             "name": name,
             "param_count": param_count,
-            "parent_scope": scope
+            "parent_scope": scope,
+            "return_type": return_type,
+            "decorators": decorators,
+            "parameters": parameters,
+            "docstring": docstring,
         }, node.start_point[0] + 1)
 
     def _handle_call_java(self, node, source: str, scope: str) -> IRFact:
@@ -666,9 +841,20 @@ class TreeSitterParser(BaseParser):
                 if child.type == "type_identifier":
                     base_classes.append(self._get_text(child, source))
         
+        # Extract annotations
+        decorators = []
+        for child in node.children:
+            if child.type in ["marker_annotation", "annotation"]:
+                decorators.append(self._get_text(child, source))
+        
+        # Extract Javadoc
+        docstring = self._get_preceding_comment(node, source)
+        
         return IRFact("ClassDeclared", {
             "name": name,
-            "base_classes": base_classes
+            "base_classes": base_classes,
+            "decorators": decorators,
+            "docstring": docstring,
         }, node.start_point[0] + 1)
 
     def _handle_interface_java(self, node, source: str, scope: str) -> IRFact:
@@ -821,6 +1007,7 @@ class TreeSitterParser(BaseParser):
         declarator = node.child_by_field_name("declarator")
         name = "<anon>"
         param_count = 0
+        parameters = []
         
         if declarator:
             func_decl = declarator
@@ -834,18 +1021,45 @@ class TreeSitterParser(BaseParser):
                  if not found: break
             
             if func_decl.type == "function_declarator":
-                declarator = func_decl.child_by_field_name("declarator")
-                if declarator:
-                    name = self._get_text(declarator, source)
+                declarator_node = func_decl.child_by_field_name("declarator")
+                if declarator_node:
+                    name = self._get_text(declarator_node, source)
                 
                 params = func_decl.child_by_field_name("parameters")
                 if params:
-                    param_count = sum(1 for child in params.children if "parameter_declaration" in child.type)
+                    for child in params.children:
+                        if "parameter_declaration" in child.type:
+                            param_count += 1
+                            param_name = ""
+                            param_type = ""
+                            # C param: type + declarator
+                            type_node = child.child_by_field_name("type")
+                            decl_node = child.child_by_field_name("declarator")
+                            if type_node:
+                                param_type = self._get_text(type_node, source)
+                            if decl_node:
+                                param_name = self._get_text(decl_node, source)
+                            else:
+                                param_name = f"param{param_count}"
+                            parameters.append({"name": param_name, "type": param_type})
+        
+        # Extract return type
+        return_type = ""
+        type_node = node.child_by_field_name("type")
+        if type_node:
+            return_type = self._get_text(type_node, source)
+        
+        # Extract comments
+        docstring = self._get_preceding_comment(node, source)
         
         return IRFact("FunctionDeclared", {
             "name": name,
             "param_count": param_count,
-            "parent_scope": scope
+            "parent_scope": scope,
+            "return_type": return_type,
+            "decorators": [],  # C doesn't have decorators
+            "parameters": parameters,
+            "docstring": docstring,
         }, node.start_point[0] + 1)
 
     def _handle_call_c(self, node, source: str, scope: str) -> IRFact:
@@ -997,13 +1211,46 @@ class TreeSitterParser(BaseParser):
         
         params_node = node.child_by_field_name("parameters")
         param_count = 0
+        parameters = []
         if params_node:
-             param_count = sum(1 for child in params_node.children if child.type == "parameter")
+            for child in params_node.children:
+                if child.type == "parameter":
+                    param_count += 1
+                    param_name = ""
+                    param_type = ""
+                    # Rust param: pattern: type
+                    pattern = child.child_by_field_name("pattern")
+                    type_node = child.child_by_field_name("type")
+                    if pattern:
+                        param_name = self._get_text(pattern, source)
+                    if type_node:
+                        param_type = self._get_text(type_node, source)
+                    parameters.append({"name": param_name, "type": param_type})
+        
+        # Extract return type
+        return_type = ""
+        return_type_node = node.child_by_field_name("return_type")
+        if return_type_node:
+            # Return type includes ->, skip it
+            return_type = self._get_text(return_type_node, source).lstrip('->').strip()
+        
+        # Extract attributes (#[...])
+        decorators = []
+        for child in node.children:
+            if child.type == "attribute_item":
+                decorators.append(self._get_text(child, source))
+        
+        # Extract doc comments
+        docstring = self._get_preceding_comment(node, source)
 
         return IRFact("FunctionDeclared", {
             "name": name,
             "param_count": param_count,
-            "parent_scope": scope
+            "parent_scope": scope,
+            "return_type": return_type,
+            "decorators": decorators,
+            "parameters": parameters,
+            "docstring": docstring,
         }, node.start_point[0] + 1)
 
     def _handle_call_rust(self, node, source: str, scope: str) -> IRFact:
@@ -1211,13 +1458,24 @@ class TreeSitterParser(BaseParser):
         
         params_node = node.child_by_field_name("parameters")
         param_count = 0
+        parameters = []
         if params_node:
-             param_count = sum(1 for child in params_node.children if child.type == "identifier")
+            for child in params_node.children:
+                if child.type == "identifier":
+                    param_count += 1
+                    parameters.append({"name": self._get_text(child, source), "type": ""})
+        
+        # Extract doc comments
+        docstring = self._get_preceding_comment(node, source)
 
         return IRFact("FunctionDeclared", {
             "name": name,
             "param_count": param_count,
-            "parent_scope": scope
+            "parent_scope": scope,
+            "return_type": "",  # Ruby doesn't have type annotations by default
+            "decorators": [],  # Ruby doesn't have decorators
+            "parameters": parameters,
+            "docstring": docstring,
         }, node.start_point[0] + 1)
 
     def _handle_call_ruby(self, node, source: str, scope: str) -> IRFact:
