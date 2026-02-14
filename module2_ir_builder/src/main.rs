@@ -2,14 +2,16 @@ mod api;
 mod graph;
 mod grpc_client;
 mod ir;
+mod language_detector;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use tracing::info;
+use tracing::{info, warn};
 use tracing_subscriber;
 
 use api::GraphQuery;
 use grpc_client::IREventClient;
+use language_detector::detect_language;
 
 #[derive(Parser)]
 #[command(name = "ir-builder")]
@@ -31,9 +33,9 @@ enum Commands {
         #[arg(short, long)]
         file: String,
 
-        /// Programming language
-        #[arg(short, long, default_value = "python")]
-        language: String,
+        /// Programming language (auto-detected from file extension if not specified)
+        #[arg(short, long)]
+        language: Option<String>,
     },
 
     /// Query the graph (requires pre-built graph)
@@ -103,7 +105,27 @@ async fn main() -> Result<()> {
             language,
         } => {
             info!("Starting IR Builder - connecting to Module 1");
-            connect_and_build(&server, &file, &language).await?;
+
+            // Auto-detect language if not provided
+            let detected_language = match language {
+                Some(lang) => {
+                    info!("Using specified language: {}", lang);
+                    lang
+                }
+                None => {
+                    match detect_language(&file) {
+                        Ok(lang) => {
+                            info!("Auto-detected language: {} from file extension", lang.display_name());
+                            lang.as_str().to_string()
+                        }
+                        Err(e) => {
+                            return Err(anyhow::anyhow!("Language detection failed: {}", e));
+                        }
+                    }
+                }
+            };
+
+            connect_and_build(&server, &file, &detected_language).await?;
         }
 
         Commands::Query { query_type } => {
