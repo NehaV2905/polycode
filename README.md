@@ -1,26 +1,224 @@
-**Project Vision**
-Modern software development is often siloed by the specific syntax of programming languages. This project introduces a common internal representation designed to unify how code is understood and processed. Rather than treating each language as an isolated ecosystem, we translate diverse source code into a single, language-agnostic format. This shared foundation allows developer tools to operate uniformly across an entire codebase, regardless of the original language.
+Module 3: Analysis Engine (Language-Agnostic Intelligence)
+Overview
 
-The current landscape of software tooling—ranging from security scanners to AI assistants—suffers from redundant effort. Developers are often forced to rebuild the same logic for every new language they support. By introducing a unified internal format, we decouple tool development from linguistic syntax, eliminating maintenance overhead and ensuring consistent behavior across all supported platforms.
+Module 3 is the language-agnostic reasoning engine of the PolyCode system.
 
-**The Core Philosophy: Meaning Over Syntax**
-At its heart, this project separates intent from expression. While a loop or a function call may look different in Python than it does in Java, the underlying logical behavior remains identical. Our system captures this shared intent by abstracting away syntax-specific noise and preserving the program’s fundamental behavior.
+It does not parse source code and does not understand syntax.
+Instead, it consumes the Intermediate Representation (IR) graph produced by Module 2 and performs graph-based static analysis.
 
-This is achieved through lightweight "front-end" modules for each language. These modules parse the source code and map it into our unified structure. Once this translation is complete, all subsequent analysis, optimization, or transformation occurs within this common environment, ensuring that the "logic" of the code remains the primary focus.
+This module operates purely on structural relationships between program entities.
 
-**Unlocking Cross-Language Synergy**
-A unified representation transforms how we build and scale developer tools. Instead of maintaining separate analysis engines for every language, a single engine can detect dead code, measure complexity, or track data flow across an entire polyglot organization. This not only improves scalability but guarantees that a "security vulnerability" or "code smell" is defined and detected the same way everywhere.
+Architecture
+Module 1 (Language Adapters)
+         ↓ (gRPC IREvents)
+Module 2 (Rust)
+    - GraphBuilder
+    - IRGraph (petgraph)
+    - Query API
+         ↓ (exported IR JSON)
+Module 3 (Python)
+    - Graph Loader
+    - Analysis Engine
+    - Structured Results
 
-Beyond mere analysis, this format allows for deeper reasoning. By removing the distraction of syntax, tools can more easily map out control flow and logical structures, making tasks like automated debugging and program understanding significantly more intuitive and powerful.
 
-**Key Capabilities & Strategic Impact**
-Universal Static Analysis: Identify logic flaws, unused variables, and complexity bottlenecks using a single, centralized logic engine.
+Module 3 receives a serialized IR graph from Module 2 and performs reasoning using graph algorithms.
 
-Agnostic Security Scanning: Detect recurring vulnerability patterns independent of how they are syntactically expressed.
+Input
 
-Consistent Refactoring: Execute complex code transformations—such as renaming or restructuring—with the confidence that the semantic meaning is preserved across languages.
+Module 3 expects a JSON file exported from Module 2:
 
-Semantic AI Readiness: Provide AI models with a structured, semantic view of code, drastically improving the accuracy of code search, summarization, and similarity detection.
+ir.json
 
-The Broader Impact
-Ultimately, this project seeks to end the fragmentation of the programming ecosystem. By shifting complexity away from individual tool development and into a shared representation layer, we make high-end code analysis and transformation accessible to all languages, old and new. This approach builds a future where the power of our tools is limited only by our logic, not by the syntax we choose to use.
+
+Example format:
+
+{
+  "nodes": [
+    {
+      "id": "uuid-1",
+      "node_type": "Function",
+      "display_name": "login",
+      "metadata": {
+        "file_path": "auth.rs",
+        "line": 12
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "uuid-1",
+      "to": "uuid-2",
+      "edge_type": "Calls"
+    }
+  ]
+}
+
+
+The analysis engine only interprets relationships such as:
+
+Calls
+
+Imports
+
+InheritsFrom
+
+HasMember
+
+No language-specific parsing occurs in this module.
+
+Responsibilities
+
+Module 3 performs:
+
+Call graph reasoning
+
+Dependency analysis
+
+Dead code detection
+
+Change impact analysis
+
+Inheritance queries
+
+It treats the IR as a directed graph.
+
+Core Analyses
+1. find_callers(function_id)
+
+Returns all functions that call the given function.
+
+Graph logic:
+
+Traverse incoming edges of type Calls
+
+2. find_callees(function_id)
+
+Returns all functions called by the given function.
+
+Graph logic:
+
+Traverse outgoing edges of type Calls
+
+3. find_unused_functions()
+
+Returns functions that are never called.
+
+Graph logic:
+
+All function nodes
+
+Minus nodes that appear as target of Calls edges
+
+4. find_dependencies(file_path)
+
+Returns modules imported by a file.
+
+Graph logic:
+
+Follow Imports edges from nodes in the file
+
+5. find_dependents(module_id)
+
+Returns files that import a module.
+
+Graph logic:
+
+Reverse traversal of Imports edges
+
+6. find_subclasses(class_id)
+
+Returns all classes inheriting from a given class.
+
+Graph logic:
+
+Reverse traversal of InheritsFrom edges
+
+Design Principles
+1. Language Agnostic
+
+This module does not know:
+
+Rust
+
+Python
+
+Java
+
+C++
+
+It only understands graph structure.
+
+2. No Storage Responsibility
+
+Module 3:
+
+Does not build the graph
+
+Does not modify the graph
+
+Does not resolve symbols
+
+Does not manage scope
+
+Those are responsibilities of Module 2.
+
+3. Pure Reasoning Layer
+
+Module 3 performs:
+
+Graph → Algorithms → Structured Results
+
+
+No UI formatting.
+No source rendering.
+Only structured output.
+
+Output Format
+
+All analyses return structured Python dictionaries.
+
+Example:
+
+{
+  "unused_functions": ["uuid-45", "uuid-78"]
+}
+
+
+This makes the engine suitable for:
+
+CLI tools
+
+IDE integrations
+
+Dashboards
+
+AI reasoning systems
+
+Algorithms Used
+
+Module 3 relies on classical graph theory:
+
+Set difference
+
+Directed graph traversal
+
+Reverse edge traversal
+
+Basic dependency graph analysis
+
+No compiler-specific logic is implemented here.
+
+Example Execution Flow
+
+Module 2 builds IR graph in Rust.
+
+Module 2 exports graph as ir.json.
+
+Module 3 loads ir.json.
+
+Module 3 constructs adjacency representation.
+
+Analysis functions are executed.
+
+Structured results are returned.
