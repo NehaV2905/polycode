@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "module2_ir_builder",
+    "module3_analysis",
+]
+resolver = "2"
