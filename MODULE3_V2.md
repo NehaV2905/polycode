@@ -359,7 +359,86 @@ These are explicitly deferred and should not be implemented in V1:
 
 ---
 
-## 13. Design Principles
+## 13. How to Run
+
+### Prerequisites
+
+- Rust installed via rustup
+- Python 3.10+ with the module1_adapter virtual environment
+- pygls 1.3.1 (not 2.x — the API changed)
+
+```bash
+# Install correct pygls version
+cd module1_adapter
+.venv\Scripts\pip install "pygls==1.3.1"
+```
+
+### Step 1 — Build Module 3
+
+From the workspace root:
+
+```bash
+cd C:\Users\vaish\polycode
+cargo build -p module3_analysis
+```
+
+### Step 2 — Start Module 1 gRPC Server (Terminal 1)
+
+```bash
+cd C:\Users\vaish\polycode
+module1_adapter\.venv\Scripts\Activate
+python start_grpc.py
+```
+
+Wait until you see:
+```
+[gRPC] Ready — 83 events waiting.
+[gRPC] Run Module 3 now in Terminal 2.
+```
+
+### Step 3 — Run Module 3 (Terminal 2)
+
+**Basic analysis:**
+```bash
+cargo run -p module3_analysis -- --file module1_adapter/examples/sample.py
+```
+
+**With impact analysis:**
+```bash
+cargo run -p module3_analysis -- --file module1_adapter/examples/sample.py --impact-target login
+```
+
+**Against a different file:**
+```bash
+cargo run -p module3_analysis -- --file module1_adapter/examples/ecommerce.py --impact-target process_order
+```
+
+### CLI Arguments
+
+| Argument | Default | Description |
+|---|---|---|
+| `--server` | `http://127.0.0.1:50051` | Module 1 gRPC server address |
+| `--file` | (required) | Source file to analyse |
+| `--language` | `python` | Programming language |
+| `--impact-target` | (optional) | Function name for impact analysis |
+
+### Run Unit Tests Only (no Module 1 needed)
+
+```bash
+cargo test -p module3_analysis
+```
+
+All 42 tests run against hand-built in-memory graphs — no gRPC server required.
+
+### Known Issues
+
+- `start_grpc.py` auto-closes the stream after ~6 seconds. If Module 3 takes longer to connect, restart Terminal 1 first.
+- The `<module>` unresolved call warning is harmless — it comes from Module 2 seeing a top-level call with no declared caller.
+- pygls 2.x breaks Module 1. Always use `pygls==1.3.1`.
+
+---
+
+## 14. Design Principles
 
 - **Separation of concerns** — observation (M1), modeling (M2), reasoning (M3) are strictly isolated
 - **API-only coupling** — Module 3 never touches IRGraph internals, only `GraphQuery`
