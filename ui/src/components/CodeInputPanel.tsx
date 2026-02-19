@@ -1,40 +1,79 @@
 import { useState } from "react";
+import type { ChangeEvent } from "react";
 
 export default function CodeInputPanel() {
-  const [language, setLanguage] = useState("Python");
-  const [code, setCode] = useState("");
+  const [language, setLanguage] = useState<string>("Python");
+  const [files, setFiles] = useState<File[]>([]);
+
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files) return;
+
+    const selectedFiles = Array.from(e.target.files);
+    setFiles((prev) => [...prev, ...selectedFiles]);
+    e.target.value = "";
+  };
+
+  const downloadFile = (file: File) => {
+    const url = URL.createObjectURL(file);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = file.name;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const removeFile = (indexToRemove: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== indexToRemove));
+  };
 
   return (
     <section style={{ marginBottom: "1rem" }}>
       <h3>Code Input</h3>
 
-      <label>
-        Language:&nbsp;
-        <select
-          value={language}
-          onChange={(e) => setLanguage(e.target.value)}
-        >
-          <option>Python</option>
-          <option>Java</option>
-          <option>Go</option>
-        </select>
-      </label>
+      <input type="file" multiple onChange={handleFileChange} />
 
       <br /><br />
 
-      <textarea
-        placeholder={`Paste ${language} code here...`}
-        value={code}
-        onChange={(e) => setCode(e.target.value)}
-        rows={8}
-        style={{ width: "100%", fontFamily: "monospace" }}
-      />
+      {files.length > 0 && (
+        <div>
+          <strong>Uploaded Files:</strong>
+          <ul>
+            {files.map((file, index) => (
+              <li key={index} style={{ marginBottom: "6px" }}>
+                <button
+                  onClick={() => downloadFile(file)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "blue",
+                    cursor: "pointer",
+                    textDecoration: "underline",
+                    marginRight: "10px"
+                  }}
+                >
+                  {file.name}
+                </button>
 
-      <br /><br />
+                <button
+                  onClick={() => removeFile(index)}
+                  style={{
+                    color: "white",
+                    background: "crimson",
+                    border: "none",
+                    borderRadius: "4px",
+                    padding: "2px 8px",
+                    cursor: "pointer"
+                  }}
+                >
+                  Remove
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
-      <button disabled>
-        Analyze (Phase 2)
-      </button>
+      <button>Analyze</button>
     </section>
   );
 }
