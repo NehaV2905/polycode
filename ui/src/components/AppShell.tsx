@@ -1,13 +1,13 @@
+import { useState } from "react";
 import MainPanel from "./MainPanel";
-import StatusBar from "./StatusBar";
 import CodeInputPanel from "./CodeInputPanel";
 
 export default function AppShell() {
+  const [analyzed, setAnalyzed] = useState(false);
   return (
     <div className="app-shell">
-      <CodeInputPanel />
-      <MainPanel />
-      <StatusBar />
+      <CodeInputPanel onAnalyze={() => setAnalyzed(true)} />
+      <MainPanel analyzed={analyzed} />
     </div>
   );
 }

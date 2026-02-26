@@ -1,14 +1,13 @@
 import "../App.css";
-import ProjectSummary from "./ProjectSummary";
-import FunctionTable from "./FunctionTable";
 import DependencyGraph from "./DependencyGraph";
+import AnalysisOutput from "./AnalysisOutput";
 
-export default function MainPanel() {
+
+export default function MainPanel({ analyzed }: { analyzed: boolean }) {
   return (
     <main className="main-content">
-      <ProjectSummary />
-      <FunctionTable />
-      <DependencyGraph />
+      {analyzed && <AnalysisOutput />}
+      {analyzed && <DependencyGraph />}
     </main>
   );
 }

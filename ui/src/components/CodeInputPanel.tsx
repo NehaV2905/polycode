@@ -1,13 +1,11 @@
 import { useState } from "react";
 import type { ChangeEvent } from "react";
 
-export default function CodeInputPanel() {
-  const [language, setLanguage] = useState<string>("Python");
+export default function CodeInputPanel({ onAnalyze }: { onAnalyze: () => void }) {
   const [files, setFiles] = useState<File[]>([]);
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
-
     const selectedFiles = Array.from(e.target.files);
     setFiles((prev) => [...prev, ...selectedFiles]);
     e.target.value = "";
@@ -29,11 +27,8 @@ export default function CodeInputPanel() {
   return (
     <section style={{ marginBottom: "1rem" }}>
       <h3>Code Input</h3>
-
       <input type="file" multiple onChange={handleFileChange} />
-
       <br /><br />
-
       {files.length > 0 && (
         <div>
           <strong>Uploaded Files:</strong>
@@ -53,7 +48,6 @@ export default function CodeInputPanel() {
                 >
                   {file.name}
                 </button>
-
                 <button
                   onClick={() => removeFile(index)}
                   style={{
@@ -72,8 +66,7 @@ export default function CodeInputPanel() {
           </ul>
         </div>
       )}
-
-      <button>Analyze</button>
+      <button onClick={onAnalyze}>Analyze</button>
     </section>
   );
 }

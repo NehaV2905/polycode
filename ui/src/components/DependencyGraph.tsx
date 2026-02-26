@@ -1,5 +1,4 @@
 import CytoscapeComponent from "react-cytoscapejs";
-//import cytoscape from "cytoscape";
 import { dummyIR } from "../data/dummyIR";
 
 export default function DependencyGraph() {
@@ -15,7 +14,7 @@ export default function DependencyGraph() {
   ];
 
   return (
-    <div style={{ height: "300px", border: "1px solid #ccc" }}>
+    <div className="graph-container">
       <CytoscapeComponent
         elements={elements}
         layout={{ name: "breadthfirst" }}
