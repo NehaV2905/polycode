@@ -12,7 +12,7 @@ export default function AnalysisOutput() {
 
   return (
     <section className="analysis-output">
-      <h3>Graph Summary</h3>
+      <h2>Code Summary</h2>
       <h3>Functions</h3>
       <ul>
         {dummyIR.functions.map((fn) => (

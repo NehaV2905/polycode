@@ -1,36 +1,29 @@
-body {
+*, *::before, *::after {
+  box-sizing: border-box;
   margin: 0;
-  font-family: sans-serif;
+  padding: 0;
 }
 
-.app-shell {
-  display: grid;
-  grid-template-columns: 250px 1fr;
-  grid-template-rows: 1fr 30px;
-  height: 100vh;
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: #1a2436;
+  color: #cdd6e4;
+  -webkit-font-smoothing: antialiased;
 }
 
-.sidebar {
-  grid-row: 1 / span 2;
-  padding: 10px;
-  border-right: 1px solid #ccc;
-  background: #f9f9f9;
+::-webkit-scrollbar {
+  width: 6px;
 }
 
-.main-panel {
-  padding: 20px;
+::-webkit-scrollbar-track {
+  background: #1a2436;
 }
 
-.status-bar {
-  grid-column: 2;
-  display: flex;
-  justify-content: space-between;
-  padding: 5px 10px;
-  border-top: 1px solid #ccc;
-  font-size: 12px;
-  background: #eee;
+::-webkit-scrollbar-thumb {
+  background: #617891;
+  border-radius: 3px;
 }
 
-.module ul {
-  margin: 5px 0 10px 15px;
+::-webkit-scrollbar-thumb:hover {
+  background: #D5B893;
 }

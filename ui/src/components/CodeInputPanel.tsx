@@ -25,48 +25,23 @@ export default function CodeInputPanel({ onAnalyze }: { onAnalyze: () => void })
   };
 
   return (
-    <section style={{ marginBottom: "1rem" }}>
-      <h3>Code Input</h3>
-      <input type="file" multiple onChange={handleFileChange} />
-      <br /><br />
-      {files.length > 0 && (
-        <div>
-          <strong>Uploaded Files:</strong>
-          <ul>
-            {files.map((file, index) => (
-              <li key={index} style={{ marginBottom: "6px" }}>
-                <button
-                  onClick={() => downloadFile(file)}
-                  style={{
-                    background: "none",
-                    border: "none",
-                    color: "blue",
-                    cursor: "pointer",
-                    textDecoration: "underline",
-                    marginRight: "10px"
-                  }}
-                >
-                  {file.name}
-                </button>
-                <button
-                  onClick={() => removeFile(index)}
-                  style={{
-                    color: "white",
-                    background: "crimson",
-                    border: "none",
-                    borderRadius: "4px",
-                    padding: "2px 8px",
-                    cursor: "pointer"
-                  }}
-                >
-                  Remove
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      <button onClick={onAnalyze}>Analyze</button>
-    </section>
-  );
+  <section>
+    <h3>Code Input</h3>
+    <input type="file" multiple onChange={handleFileChange} />
+    {files.length > 0 && (
+      <div>
+        <strong>Uploaded Files:</strong>
+        <ul>
+          {files.map((file, index) => (
+            <li key={index}>
+              <button onClick={() => downloadFile(file)}>{file.name}</button>
+              <button onClick={() => removeFile(index)}>Remove</button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    )}
+    <button onClick={onAnalyze}>Analyze</button>
+  </section>
+);
 }

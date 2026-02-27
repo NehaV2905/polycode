@@ -9,7 +9,9 @@ export default function AppShell() {
   if (!started) return <LandingPage onEnter={() => setStarted(true)} />;
   return (
     <div className="app-shell">
-      <CodeInputPanel onAnalyze={() => setAnalyzed(true)} />
+      <aside className="sidebar">
+        <CodeInputPanel onAnalyze={() => setAnalyzed(true)} />
+      </aside>
       <MainPanel analyzed={analyzed} />
     </div>
   );
