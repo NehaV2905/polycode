@@ -170,6 +170,7 @@ class TreeSitterParser(BaseParser):
             return {
                 "method_declaration": {"method": "field", "field": "name"},
                 "class_declaration": {"method": "field", "field": "name"},
+                "interface_declaration": {"method": "field", "field": "name"},
             }
         elif language_name == "c":
             return {"function_definition": {"method": "c_function"}}

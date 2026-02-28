@@ -120,15 +120,15 @@ impl<'a> GraphQuery<'a> {
     pub fn find_unused_functions(&self, file_path: &str) -> Vec<FunctionInfo> {
         let file_nodes = self.graph.get_file_nodes(file_path);
 
-        // Build class-name → node map for cross-node lookups (Lombok, Spring Data, etc.)
-        let class_map: std::collections::HashMap<&str, &IRNode> = file_nodes
+        // Build a name → node map covering both classes and interfaces.
+        // Used for cross-node lookups: Lombok annotations, Spring Data JPA,
+        // and skipping interface method declarations entirely.
+        let type_map: std::collections::HashMap<&str, &IRNode> = file_nodes
             .iter()
-            .filter_map(|node| {
-                if let NodeType::Class { name, .. } = &node.node_type {
-                    Some((name.as_str(), *node))
-                } else {
-                    None
-                }
+            .filter_map(|node| match &node.node_type {
+                NodeType::Class { name, .. } => Some((name.as_str(), *node)),
+                NodeType::Interface { name, .. } => Some((name.as_str(), *node)),
+                _ => None,
             })
             .collect();
 
@@ -193,19 +193,25 @@ impl<'a> GraphQuery<'a> {
                         return false;
                     }
 
-                    // Cross-node checks: look up the enclosing class
+                    // Cross-node checks: look up the enclosing class or interface
                     let parent_scope = match &node.node_type {
                         NodeType::Function { parent_scope, .. } => parent_scope.as_deref(),
                         _ => None,
                     };
                     if let Some(scope) = parent_scope {
-                        if let Some(&class_node) = class_map.get(scope) {
+                        if let Some(&type_node) = type_map.get(scope) {
+                            // Interface method declarations are never called directly —
+                            // Java dispatches through concrete implementations at runtime.
+                            if matches!(type_node.node_type, NodeType::Interface { .. }) {
+                                return false;
+                            }
+
                             // Lombok: skip getters/setters on @Data/@Getter/@Setter/@Value classes.
                             // Lombok generates these at bytecode level — no call edges in source.
                             const LOMBOK_CLASS_ANNOTATIONS: &[&str] =
                                 &["@Data", "@Getter", "@Setter", "@Value"];
                             let has_lombok =
-                                class_node.metadata.decorators.iter().any(|d| {
+                                type_node.metadata.decorators.iter().any(|d| {
                                     let base = d
                                         .split(|c: char| c == '(' || c.is_whitespace())
                                         .next()
@@ -220,8 +226,8 @@ impl<'a> GraphQuery<'a> {
                                 return false;
                             }
 
-                            // Spring Data JPA: skip methods on repository interfaces.
-                            // Spring generates the implementation at runtime via proxy.
+                            // Spring Data JPA: skip methods on repository classes/interfaces.
+                            // Spring generates implementations at runtime via proxy.
                             const SPRING_DATA_REPOS: &[&str] = &[
                                 "JpaRepository",
                                 "CrudRepository",
@@ -230,16 +236,18 @@ impl<'a> GraphQuery<'a> {
                                 "ReactiveMongoRepository",
                                 "ListCrudRepository",
                             ];
-                            if let NodeType::Class { base_classes, .. } = &class_node.node_type {
-                                let is_spring_repo = base_classes.iter().any(|b| {
-                                    // Handle generics: "JpaRepository<User, Long>" -> "JpaRepository"
-                                    let base_name =
-                                        b.split('<').next().unwrap_or(b.as_str()).trim();
-                                    SPRING_DATA_REPOS.contains(&base_name)
-                                });
-                                if is_spring_repo {
-                                    return false;
-                                }
+                            let base_types = match &type_node.node_type {
+                                NodeType::Class { base_classes, .. } => base_classes.as_slice(),
+                                NodeType::Interface { base_interfaces, .. } => base_interfaces.as_slice(),
+                                _ => &[],
+                            };
+                            let is_spring_repo = base_types.iter().any(|b| {
+                                // Handle generics: "JpaRepository<User, Long>" -> "JpaRepository"
+                                let base_name = b.split('<').next().unwrap_or(b.as_str()).trim();
+                                SPRING_DATA_REPOS.contains(&base_name)
+                            });
+                            if is_spring_repo {
+                                return false;
                             }
                         }
                     }
