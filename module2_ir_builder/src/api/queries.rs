@@ -118,11 +118,134 @@ impl<'a> GraphQuery<'a> {
 
     /// Find all functions that are never called (unused functions)
     pub fn find_unused_functions(&self, file_path: &str) -> Vec<FunctionInfo> {
-        self.graph
-            .get_file_nodes(file_path)
+        let file_nodes = self.graph.get_file_nodes(file_path);
+
+        // Build class-name → node map for cross-node lookups (Lombok, Spring Data, etc.)
+        let class_map: std::collections::HashMap<&str, &IRNode> = file_nodes
+            .iter()
+            .filter_map(|node| {
+                if let NodeType::Class { name, .. } = &node.node_type {
+                    Some((name.as_str(), *node))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        file_nodes
             .iter()
             .filter(|node| {
                 matches!(node.node_type, NodeType::Function { .. })
+            })
+            .filter(|node| {
+                // Language-aware filtering: skip functions that are invoked by the
+                // runtime/framework rather than by direct call edges in user code.
+                let fp = &node.metadata.file_path;
+                let name = match &node.node_type {
+                    NodeType::Function { name, .. } => name.as_str(),
+                    _ => return true,
+                };
+
+                // Skip universal entry points (all languages)
+                if name == "main" || name == "init" {
+                    return false;
+                }
+
+                // Go: test/benchmark/example functions in *_test.go files are
+                // invoked by `go test` via naming convention, not direct calls.
+                if fp.ends_with("_test.go")
+                    && (name.starts_with("Test")
+                        || name.starts_with("Benchmark")
+                        || name.starts_with("Example"))
+                {
+                    return false;
+                }
+
+                // Java: methods annotated with known framework annotations are
+                // invoked by Spring/JUnit via reflection, not direct call edges.
+                if fp.ends_with(".java") {
+                    const JAVA_FRAMEWORK_ANNOTATIONS: &[&str] = &[
+                        // Spring beans & components
+                        "@Bean", "@Component", "@Service", "@Repository",
+                        "@Controller", "@RestController",
+                        // Spring MVC endpoints
+                        "@GetMapping", "@PostMapping", "@PutMapping",
+                        "@DeleteMapping", "@PatchMapping", "@RequestMapping",
+                        // JVM contract overrides
+                        "@Override",
+                        // Spring lifecycle & events
+                        "@Scheduled", "@EventListener",
+                        "@PostConstruct", "@PreDestroy",
+                        // JUnit test lifecycle
+                        "@Test", "@BeforeEach", "@AfterEach",
+                        "@BeforeAll", "@AfterAll",
+                    ];
+                    let has_framework_annotation =
+                        node.metadata.decorators.iter().any(|d| {
+                            // Normalize to just the annotation name (strip parameters)
+                            let base = d
+                                .split(|c: char| c == '(' || c.is_whitespace())
+                                .next()
+                                .unwrap_or(d.as_str());
+                            JAVA_FRAMEWORK_ANNOTATIONS.contains(&base)
+                        });
+                    if has_framework_annotation {
+                        return false;
+                    }
+
+                    // Cross-node checks: look up the enclosing class
+                    let parent_scope = match &node.node_type {
+                        NodeType::Function { parent_scope, .. } => parent_scope.as_deref(),
+                        _ => None,
+                    };
+                    if let Some(scope) = parent_scope {
+                        if let Some(&class_node) = class_map.get(scope) {
+                            // Lombok: skip getters/setters on @Data/@Getter/@Setter/@Value classes.
+                            // Lombok generates these at bytecode level — no call edges in source.
+                            const LOMBOK_CLASS_ANNOTATIONS: &[&str] =
+                                &["@Data", "@Getter", "@Setter", "@Value"];
+                            let has_lombok =
+                                class_node.metadata.decorators.iter().any(|d| {
+                                    let base = d
+                                        .split(|c: char| c == '(' || c.is_whitespace())
+                                        .next()
+                                        .unwrap_or(d.as_str());
+                                    LOMBOK_CLASS_ANNOTATIONS.contains(&base)
+                                });
+                            if has_lombok
+                                && ((name.starts_with("get") && name.len() > 3)
+                                    || (name.starts_with("set") && name.len() > 3)
+                                    || (name.starts_with("is") && name.len() > 2))
+                            {
+                                return false;
+                            }
+
+                            // Spring Data JPA: skip methods on repository interfaces.
+                            // Spring generates the implementation at runtime via proxy.
+                            const SPRING_DATA_REPOS: &[&str] = &[
+                                "JpaRepository",
+                                "CrudRepository",
+                                "PagingAndSortingRepository",
+                                "MongoRepository",
+                                "ReactiveMongoRepository",
+                                "ListCrudRepository",
+                            ];
+                            if let NodeType::Class { base_classes, .. } = &class_node.node_type {
+                                let is_spring_repo = base_classes.iter().any(|b| {
+                                    // Handle generics: "JpaRepository<User, Long>" -> "JpaRepository"
+                                    let base_name =
+                                        b.split('<').next().unwrap_or(b.as_str()).trim();
+                                    SPRING_DATA_REPOS.contains(&base_name)
+                                });
+                                if is_spring_repo {
+                                    return false;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                true
             })
             .filter(|node| {
                 // A function is unused if it has no incoming Calls edges

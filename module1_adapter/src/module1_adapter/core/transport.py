@@ -59,12 +59,6 @@ class IREventPublisher:
         event = ir_events_pb2.IREvent(metadata=metadata)
         
         if fact.fact_type == "FunctionDeclared":
-            # Convert parameters from dict to protobuf Parameter messages
-            params = []
-            for p in fact.data.get("parameters", []):
-                param = ir_events_pb2.Parameter(name=p.get("name", ""), type=p.get("type", ""))
-                params.append(param)
-            
             event.function_declared.CopyFrom(
                 ir_events_pb2.FunctionDeclared(
                     name=fact.data["name"],
@@ -73,8 +67,6 @@ class IREventPublisher:
                     parent_scope=fact.data["parent_scope"],
                     return_type=fact.data.get("return_type", ""),
                     decorators=fact.data.get("decorators", []),
-                    parameters=params,
-                    docstring=fact.data.get("docstring", "")
                 )
             )
         
@@ -134,7 +126,6 @@ class IREventPublisher:
                     base_classes=fact.data["base_classes"],
                     line_number=fact.line_number,
                     decorators=fact.data.get("decorators", []),
-                    docstring=fact.data.get("docstring", "")
                 )
             )
         
@@ -209,12 +200,6 @@ class IREventPublisher:
             )
         
         elif fact.fact_type == "AsyncFunctionDeclared":
-            # Convert parameters from dict to protobuf Parameter messages
-            params = []
-            for p in fact.data.get("parameters", []):
-                param = ir_events_pb2.Parameter(name=p.get("name", ""), type=p.get("type", ""))
-                params.append(param)
-            
             event.async_function_declared.CopyFrom(
                 ir_events_pb2.AsyncFunctionDeclared(
                     name=fact.data["name"],
@@ -223,8 +208,6 @@ class IREventPublisher:
                     parent_scope=fact.data["parent_scope"],
                     return_type=fact.data.get("return_type", ""),
                     decorators=fact.data.get("decorators", []),
-                    parameters=params,
-                    docstring=fact.data.get("docstring", "")
                 )
             )
         

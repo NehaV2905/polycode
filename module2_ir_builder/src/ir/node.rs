@@ -19,6 +19,9 @@ pub struct NodeMetadata {
     /// Source file path
     pub file_path: String,
 
+    /// Annotations or decorators on this node (e.g. ["@Bean", "@Override"] for Java)
+    pub decorators: Vec<String>,
+
     /// Additional custom metadata (extensible)
     pub custom: HashMap<String, String>,
 }

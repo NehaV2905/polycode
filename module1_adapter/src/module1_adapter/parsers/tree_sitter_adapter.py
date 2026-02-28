@@ -167,7 +167,10 @@ class TreeSitterParser(BaseParser):
                 "method_declaration": {"method": "field", "field": "name"}
             }
         elif language_name == "java":
-            return {"method_declaration": {"method": "field", "field": "name"}}
+            return {
+                "method_declaration": {"method": "field", "field": "name"},
+                "class_declaration": {"method": "field", "field": "name"},
+            }
         elif language_name == "c":
             return {"function_definition": {"method": "c_function"}}
         elif language_name == "rust":
@@ -775,12 +778,16 @@ class TreeSitterParser(BaseParser):
         elif any(child.type == "void_type" for child in node.children):
             return_type = "void"
         
-        # Extract annotations
+        # Extract annotations (may be direct children or inside a modifiers node)
         decorators = []
         for child in node.children:
             if child.type in ["marker_annotation", "annotation"]:
                 decorators.append(self._get_text(child, source))
-        
+            elif child.type == "modifiers":
+                for mod_child in child.children:
+                    if mod_child.type in ["marker_annotation", "annotation"]:
+                        decorators.append(self._get_text(mod_child, source))
+
         # Extract Javadoc
         docstring = self._get_preceding_comment(node, source)
 
@@ -841,15 +848,19 @@ class TreeSitterParser(BaseParser):
                 if child.type == "type_identifier":
                     base_classes.append(self._get_text(child, source))
         
-        # Extract annotations
+        # Extract annotations (may be direct children or inside a modifiers node)
         decorators = []
         for child in node.children:
             if child.type in ["marker_annotation", "annotation"]:
                 decorators.append(self._get_text(child, source))
-        
+            elif child.type == "modifiers":
+                for mod_child in child.children:
+                    if mod_child.type in ["marker_annotation", "annotation"]:
+                        decorators.append(self._get_text(mod_child, source))
+
         # Extract Javadoc
         docstring = self._get_preceding_comment(node, source)
-        
+
         return IRFact("ClassDeclared", {
             "name": name,
             "base_classes": base_classes,

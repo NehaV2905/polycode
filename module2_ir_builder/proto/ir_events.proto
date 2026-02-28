@@ -21,6 +21,8 @@ message FunctionDeclared {
   int32 param_count = 2;
   int32 line_number = 3;
   string parent_scope = 4;  // Empty string for top-level, class name for methods
+  string return_type = 5;   // Return type annotation (field 5 matches Module 1 wire format)
+  repeated string decorators = 6;  // Annotations/decorators e.g. ["@Bean", "@Override"]
 }
 
 // Event: Function call observed
@@ -66,6 +68,7 @@ message ClassDeclared {
   string name = 1;
   repeated string base_classes = 2;
   int32 line_number = 3;
+  repeated string decorators = 4;  // Annotations on the class e.g. ["@Data", "@Entity"]
 }
 
 // Event: Variable assignment observed
@@ -130,6 +133,8 @@ message AsyncFunctionDeclared {
   int32 param_count = 2;
   int32 line_number = 3;
   string parent_scope = 4;  // Empty string for top-level, class name for methods
+  string return_type = 5;   // Return type annotation (field 5 matches Module 1 wire format)
+  repeated string decorators = 6;  // Annotations/decorators e.g. ["@Bean", "@Override"]
 }
 
 // Event: Await expression (async call)
