@@ -2,6 +2,7 @@ import { useState } from "react";
 import MainPanel from "./MainPanel";
 import CodeInputPanel from "./CodeInputPanel";
 import LandingPage from "./LandingPage";
+import ChatBox from "./ChatBox";
 
 export default function AppShell() {
   const [started, setStarted] = useState(false);
@@ -10,7 +11,12 @@ export default function AppShell() {
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <CodeInputPanel onAnalyze={() => setAnalyzed(true)} />
+        <div className="sidebar-top">
+          <CodeInputPanel onAnalyze={() => setAnalyzed(true)} />
+        </div>
+        <div className="sidebar-bottom">
+          <ChatBox />
+        </div>
       </aside>
       <MainPanel analyzed={analyzed} />
     </div>
