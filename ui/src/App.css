@@ -43,12 +43,13 @@
 .main-content {
   padding: 2rem 2.2rem;
   background: var(--panel-bg);
-  overflow-y: auto;
+  overflow-y: scroll;
   display: flex;
   flex-direction: column;
   gap: 1.6rem;
   position: relative;
   min-height: 0;
+  max-height: 100%;
 }
 
 /* ══════════════════════════════════════
@@ -318,7 +319,9 @@
   background: var(--card-bg);
   border: 1px solid var(--border);
   border-radius: 10px;
-  height: 340px;
+  height: 400px;
+  min-height: 400px;
+  flex-shrink: 0;
   overflow: hidden;
   position: relative;
   transition: border-color 0.3s, box-shadow 0.3s;
@@ -336,9 +339,7 @@
 
 .graph-container:hover {
   border-color: rgba(97,120,145,0.45);
-  box-shadow:
-    0 0 24px rgba(97,120,145,0.1),
-    inset 0 0 40px rgba(14,22,33,0.5);
+  box-shadow: 0 0 24px rgba(97,120,145,0.1), inset 0 0 40px rgba(14,22,33,0.5);
 }
 
 /* ══════════════════════════════════════
@@ -505,4 +506,152 @@
 @keyframes ctaEntry {
   from { opacity: 0; transform: translateY(20px); }
   to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── FIX SUGGESTER ── */
+.fix-suggester {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.6rem;
+  position: relative;
+  animation: fadeSlideIn 0.7s ease 0.3s both;
+}
+
+.fix-suggester::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(99,32,36,0.6), rgba(213,184,147,0.3), transparent);
+}
+
+.fix-suggester h2 {
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: var(--tan);
+  text-shadow: 0 0 16px rgba(213,184,147,0.5);
+  margin-bottom: 1rem;
+}
+
+.fix-meta {
+  display: flex;
+  gap: 1.6rem;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  letter-spacing: 1px;
+  margin-bottom: 1.4rem;
+  padding: 0.7rem 1rem;
+  background: rgba(97,120,145,0.06);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.fix-meta strong {
+  color: var(--tan);
+}
+
+.fix-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fix-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(97,120,145,0.04);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  overflow: hidden;
+}
+
+.fix-card:hover {
+  border-color: rgba(213,184,147,0.3);
+  background: rgba(97,120,145,0.08);
+  box-shadow: 0 0 12px rgba(97,120,145,0.08);
+}
+
+.fix-card.expanded {
+  border-color: rgba(213,184,147,0.4);
+  box-shadow: 0 0 20px rgba(213,184,147,0.08);
+}
+
+.fix-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+}
+
+.fix-card-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fix-card-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fix-badge {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  padding: 2px 7px;
+  border-radius: 3px;
+  background: rgba(99,32,36,0.4);
+  border: 1px solid rgba(99,32,36,0.6);
+  color: #ff8a8a;
+}
+
+.fix-function {
+  font-size: 0.85rem;
+  color: var(--text);
+  font-weight: 500;
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+}
+
+.fix-line {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  letter-spacing: 1px;
+}
+
+.fix-file {
+  font-size: 0.72rem;
+  color: var(--slate-gray);
+  font-family: monospace;
+}
+
+.fix-chevron {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  transition: transform 0.2s;
+}
+
+.fix-card-body {
+  padding: 0 14px 14px;
+  border-top: 1px solid var(--border);
+  margin-top: 0;
+  animation: fadeSlideIn 0.2s ease forwards;
+}
+
+.fix-filepath {
+  font-size: 0.7rem;
+  color: var(--slate-gray);
+  font-family: monospace;
+  margin: 10px 0 8px;
+  letter-spacing: 0.5px;
+}
+
+.fix-suggestion {
+  font-size: 0.82rem;
+  color: var(--text-primary);
+  line-height: 1.7;
+  color: #a8bfd4;
 }
