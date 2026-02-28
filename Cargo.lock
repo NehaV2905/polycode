@@ -606,6 +606,7 @@ dependencies = [
  "module2_ir_builder",
  "serde",
  "serde_json",
+ "tempfile",
  "tokio",
  "tracing",
  "tracing-subscriber",

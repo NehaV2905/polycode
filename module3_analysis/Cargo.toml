@@ -12,6 +12,7 @@ tokio = { version = "1.35", features = ["macros", "rt-multi-thread"] }
 clap = { version = "4.4", features = ["derive"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
+tempfile = "3"
 
 [[bin]]
 name = "module3"
