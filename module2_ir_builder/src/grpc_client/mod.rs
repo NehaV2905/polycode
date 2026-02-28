@@ -44,11 +44,11 @@ impl IREventClient {
     pub async fn monitor_file(&mut self, file_path: String, language: String) -> Result<()> {
         info!("Monitoring file: {} ({})", file_path, language);
 
-        // Set current file context
+        // Clear existing nodes first (incremental update), then set file context
+        // so the fresh module node survives into event processing.
         self.builder.set_current_file(file_path.clone(), language.clone());
-
-        // Clear existing nodes for this file (incremental update)
         self.builder.clear_current_file()?;
+        self.builder.set_current_file(file_path.clone(), language.clone());
 
         // Create request
         let request = Request::new(MonitorFileRequest {

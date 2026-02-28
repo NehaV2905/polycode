@@ -224,9 +224,16 @@ impl GraphBuilder {
         // Create or lookup the imported module node
         let module_id = self.ensure_module_node(&module_name, timestamp)?;
 
-        // Link current file to imported module
-        if let Some(ref file_path) = self.current_file {
-            if let Some(current_file_id) = self.lookup_symbol(file_path) {
+        // Link current file to imported module.
+        // The module node is stored under its basename (display_name), not the full path,
+        // so we look it up by basename.
+        if let Some(ref file_path) = self.current_file.clone() {
+            let file_basename = file_path
+                .split('/')
+                .last()
+                .unwrap_or(file_path.as_str())
+                .to_string();
+            if let Some(current_file_id) = self.lookup_symbol(&file_basename) {
                 let edge = IREdge::new(
                     current_file_id,
                     module_id,
@@ -483,14 +490,31 @@ impl GraphBuilder {
         line_number: i32,
         is_method_call: bool,
     ) -> Result<()> {
-        if let Some(parent) = parent_function {
-            if let Some(_function_id) = self.lookup_symbol(&parent) {
-                // Create AccessesMember edge for tracking member access patterns
-                // In future: could create a Member node for tracking accessed properties
-                debug!(
-                    "Recorded member access in {}: {}.{} (method: {})",
-                    parent, object_name, member_name, is_method_call
-                );
+        if let Some(ref parent) = parent_function {
+            if let Some(caller_id) = self.lookup_symbol(parent) {
+                // If this is a method call (e.g. self.foo() or obj.foo()) and the method
+                // can be resolved in the current file, create an AccessesMember edge so
+                // the method is not incorrectly flagged as unused dead code.
+                if is_method_call {
+                    if let Some(callee_id) = self.lookup_symbol(&member_name) {
+                        let edge = IREdge::new(
+                            caller_id,
+                            callee_id,
+                            EdgeType::AccessesMember {
+                                member_name: member_name.clone(),
+                                is_method_call: true,
+                            },
+                            line_number,
+                        );
+                        self.graph.add_edge(edge)?;
+                        debug!("Linked method call: {}.{}()", parent, member_name);
+                    }
+                } else {
+                    debug!(
+                        "Recorded member access in {}: {}.{} (property)",
+                        parent, object_name, member_name
+                    );
+                }
             }
         }
         Ok(())

@@ -28,8 +28,12 @@ impl<'a> GraphQuery<'a> {
             .iter()
             .filter_map(|edge| {
                 if matches!(edge.edge_type, EdgeType::Calls { .. }) {
-                    self.graph.get_node(&edge.from).map(|node| {
-                        FunctionInfo::from_node(node, edge.line_number)
+                    self.graph.get_node(&edge.from).and_then(|node| {
+                        if matches!(node.node_type, NodeType::Function { .. }) {
+                            Some(FunctionInfo::from_node(node, edge.line_number))
+                        } else {
+                            None
+                        }
                     })
                 } else {
                     None
@@ -50,8 +54,12 @@ impl<'a> GraphQuery<'a> {
             .iter()
             .filter_map(|edge| {
                 if matches!(edge.edge_type, EdgeType::Calls { .. }) {
-                    self.graph.get_node(&edge.to).map(|node| {
-                        FunctionInfo::from_node(node, edge.line_number)
+                    self.graph.get_node(&edge.to).and_then(|node| {
+                        if matches!(node.node_type, NodeType::Function { .. }) {
+                            Some(FunctionInfo::from_node(node, edge.line_number))
+                        } else {
+                            None
+                        }
                     })
                 } else {
                     None
@@ -117,11 +125,15 @@ impl<'a> GraphQuery<'a> {
                 matches!(node.node_type, NodeType::Function { .. })
             })
             .filter(|node| {
-                // A function is unused if it has no incoming "Calls" edges
+                // A function is unused if it has no incoming Calls edges
+                // AND no incoming AccessesMember edges (method calls like self.foo() or obj.foo())
                 self.graph
                     .get_incoming_edges(&node.id)
                     .iter()
-                    .all(|edge| !matches!(edge.edge_type, EdgeType::Calls { .. }))
+                    .all(|edge| !matches!(
+                        edge.edge_type,
+                        EdgeType::Calls { .. } | EdgeType::AccessesMember { .. }
+                    ))
             })
             .map(|node| FunctionInfo::from_node(node, node.metadata.line_number))
             .collect()

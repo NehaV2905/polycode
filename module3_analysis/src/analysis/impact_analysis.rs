@@ -1,7 +1,6 @@
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashSet, VecDeque};
 
 use module2_ir_builder::api::GraphQuery;
-use module2_ir_builder::api::queries::FunctionInfo;
 
 use crate::models::impact_report::ImpactReport;
 

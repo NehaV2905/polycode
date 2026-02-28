@@ -54,7 +54,9 @@ impl Language {
 ///
 /// # Examples
 /// ```
-/// let lang = detect_language("main.py")?;
+/// use module2_ir_builder::{detect_language, Language};
+///
+/// let lang = detect_language("main.py").unwrap();
 /// assert_eq!(lang, Language::Python);
 /// ```
 pub fn detect_language(file_path: &str) -> Result<Language> {
