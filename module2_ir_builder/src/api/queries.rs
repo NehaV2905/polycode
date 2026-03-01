@@ -161,6 +161,24 @@ impl<'a> GraphQuery<'a> {
                     return false;
                 }
 
+                // Go: exported struct methods (receiver type set as parent_scope,
+                // starts with uppercase) are dispatched through interfaces at runtime.
+                // Without type information we can't resolve the receiver, so skip them.
+                if fp.ends_with(".go") {
+                    let parent_scope = match &node.node_type {
+                        NodeType::Function { parent_scope, .. } => parent_scope.as_deref(),
+                        _ => None,
+                    };
+                    if let Some(scope) = parent_scope {
+                        // A real receiver type is neither empty nor the "<global>" sentinel
+                        let is_struct_method = !scope.is_empty() && scope != "<global>";
+                        let is_exported = name.chars().next().map_or(false, |c| c.is_uppercase());
+                        if is_struct_method && is_exported {
+                            return false;
+                        }
+                    }
+                }
+
                 // Java: methods annotated with known framework annotations are
                 // invoked by Spring/JUnit via reflection, not direct call edges.
                 if fp.ends_with(".java") {
