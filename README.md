@@ -74,8 +74,7 @@ The system requires **three processes** running concurrently. Open three termina
 Module 1 must be started first; all other modules connect to it on port 50051.
 
 ```bash
-cd module1_adapter
-python src/main.py --mode lsp --grpc-port 50051
+python test_integration_v3.py
 ```
 
 ### Terminal 2 — API server
