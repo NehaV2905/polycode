@@ -1,0 +1,23 @@
+[package]
+name = "api_server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+module2_ir_builder = { path = "../module2_ir_builder" }
+module3_analysis   = { path = "../module3_analysis" }
+
+axum               = { version = "0.7", features = ["multipart"] }
+tower-http         = { version = "0.5", features = ["cors"] }
+tokio              = { version = "1", features = ["macros", "rt-multi-thread"] }
+serde              = { version = "1.0", features = ["derive"] }
+serde_json         = "1.0"
+anyhow             = "1.0"
+reqwest            = { version = "0.12", features = ["json"] }
+tempfile           = "3"
+tracing            = "0.1"
+tracing-subscriber = "0.3"
+
+[[bin]]
+name = "api_server"
+path = "src/main.rs"

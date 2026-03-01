@@ -1,18 +1,16 @@
-import { dummyIR } from "../data/dummyIR";
+import type { IRGraph, IRNode } from "../types";
 
-type IRNode = typeof dummyIR.nodes[0];
+const getModuleData = (n: IRNode) => "Module"   in n.node_type ? (n.node_type as any).Module   : null;
+const getClassData  = (n: IRNode) => "Class"    in n.node_type ? (n.node_type as any).Class    : null;
+const getFnData     = (n: IRNode) => "Function" in n.node_type ? (n.node_type as any).Function : null;
 
-const getModuleData = (n: IRNode) => "Module" in n.node_type ? n.node_type.Module : null;
-const getClassData  = (n: IRNode) => "Class"  in n.node_type ? n.node_type.Class  : null;
-const getFnData     = (n: IRNode) => "Function" in n.node_type ? n.node_type.Function : null;
+export default function AnalysisOutput({ ir }: { ir: IRGraph }) {
+  const modules   = ir.nodes.filter(n => "Module"   in n.node_type);
+  const classes   = ir.nodes.filter(n => "Class"    in n.node_type);
+  const functions = ir.nodes.filter(n => "Function" in n.node_type);
 
-export default function AnalysisOutput() {
-  const modules   = dummyIR.nodes.filter(n => "Module"   in n.node_type);
-  const classes   = dummyIR.nodes.filter(n => "Class"    in n.node_type);
-  const functions = dummyIR.nodes.filter(n => "Function" in n.node_type);
-
-  const callEdges   = dummyIR.edges.filter(e => typeof e.edge_type === "object" && "Calls" in e.edge_type);
-  const memberEdges = dummyIR.edges.filter(e => e.edge_type === "HasMember");
+  const callEdges   = ir.edges.filter(e => typeof e.edge_type === "object" && e.edge_type !== null && "Calls" in (e.edge_type as object));
+  const memberEdges = ir.edges.filter(e => e.edge_type === "HasMember");
 
   const calledIds       = new Set(callEdges.map(e => e.to));
   const unusedFunctions = functions.filter(fn => !calledIds.has(fn.id));
@@ -68,7 +66,7 @@ export default function AnalysisOutput() {
 
       <h3>Unused Functions</h3>
       {unusedFunctions.length === 0 ? (
-        <p className="no-unused">None 🎉</p>
+        <p className="no-unused">None found</p>
       ) : (
         <ul>
           {unusedFunctions.map(n => {
@@ -86,8 +84,8 @@ export default function AnalysisOutput() {
 
       <h3>Graph Summary</h3>
       <p className="graph-summary">
-        Nodes: <strong>{dummyIR.nodes.length}</strong> |{" "}
-        Edges: <strong>{dummyIR.edges.length}</strong> |{" "}
+        Nodes: <strong>{ir.nodes.length}</strong> |{" "}
+        Edges: <strong>{ir.edges.length}</strong> |{" "}
         Calls: <strong>{callEdges.length}</strong> |{" "}
         Members: <strong>{memberEdges.length}</strong>
       </p>

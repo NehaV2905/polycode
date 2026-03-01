@@ -3,5 +3,6 @@ members = [
     "module2_ir_builder",
     "module3_analysis",
     "module4_fixer",
+    "api_server",
 ]
 resolver = "2"
