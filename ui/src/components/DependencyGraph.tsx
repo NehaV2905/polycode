@@ -21,40 +21,29 @@ const basename = (p: string) => p.split(/[/\\]/).pop() ?? p;
 
 const getLabel = (n: IRNode): string => {
   const nt = n.node_type as any;
-  if ("Module"      in nt) return basename(nt.Module?.file_path      ?? n.id);
-  if ("Class"       in nt) return nt.Class?.name                     || "(unnamed)";
-  if ("Function"    in nt) return nt.Function?.name                  || "(unnamed)";
-  if ("Interface"   in nt) return nt.Interface?.name                 || "(unnamed)";
-  if ("Enum"        in nt) return nt.Enum?.name                      || "(unnamed)";
-  if ("Variable"    in nt) return nt.Variable?.name                  || "(unnamed)";
+  if ("Module"      in nt) return basename(nt.Module?.file_path ?? "");
+  if ("Class"       in nt) return nt.Class?.name       || "(unnamed)";
+  if ("Function"    in nt) return nt.Function?.name    || "(unnamed)";
+  if ("Interface"   in nt) return nt.Interface?.name   || "(unnamed)";
+  if ("Enum"        in nt) return nt.Enum?.name        || "(unnamed)";
+  if ("Variable"    in nt) return nt.Variable?.name    || "(var)";
   if ("Lambda"      in nt) return "λ";
-  if ("ControlFlow" in nt) return nt.ControlFlow?.control_type       || "flow";
-  return "(unknown)";
+  if ("ControlFlow" in nt) return nt.ControlFlow?.control_type || "flow";
+  return "?";
 };
 
 const getKind = (n: IRNode): string => {
-  if ("Module"      in n.node_type) return "Module";
-  if ("Class"       in n.node_type) return "Class";
-  if ("Function"    in n.node_type) return "Function";
-  if ("Interface"   in n.node_type) return "Interface";
-  if ("Enum"        in n.node_type) return "Enum";
-  if ("Variable"    in n.node_type) return "Variable";
-  if ("Lambda"      in n.node_type) return "Lambda";
-  if ("ControlFlow" in n.node_type) return "ControlFlow";
-  return "Unknown";
+  if ("Module"    in n.node_type) return "Module";
+  if ("Class"     in n.node_type) return "Class";
+  if ("Function"  in n.node_type) return "Function";
+  if ("Interface" in n.node_type) return "Interface";
+  if ("Enum"      in n.node_type) return "Enum";
+  return "Unknown"; // Variable, Lambda, ControlFlow → base small dot, no label
 };
 
 export default function DependencyGraph({ ir }: { ir: IRGraph }) {
   const moduleNodes = ir.nodes.filter(isSourceModule).filter(n => "Module" in n.node_type);
-  // Only meaningful structural nodes — skip Variable/Lambda/ControlFlow noise
-  const otherNodes  = ir.nodes.filter(n => {
-    const nt = n.node_type as any;
-    if ("Module"      in nt) return false;
-    if ("Variable"    in nt) return false;
-    if ("Lambda"      in nt) return false;
-    if ("ControlFlow" in nt) return false;
-    return true; // Function, Class, Interface, Enum
-  });
+  const otherNodes  = ir.nodes.filter(n => !("Module" in n.node_type));
 
   // file_path → module node id
   const fileToModuleId = new Map<string, string>();
