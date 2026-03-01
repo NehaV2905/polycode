@@ -21,16 +21,26 @@ const basename = (p: string) => p.split(/[/\\]/).pop() ?? p;
 
 const getLabel = (n: IRNode): string => {
   const nt = n.node_type as any;
-  if ("Module"   in nt) return basename(nt.Module?.file_path ?? n.id);
-  if ("Class"    in nt) return nt.Class?.name    ?? n.id;
-  if ("Function" in nt) return nt.Function?.name ?? n.id;
-  return n.id;
+  if ("Module"      in nt) return basename(nt.Module?.file_path      ?? n.id);
+  if ("Class"       in nt) return nt.Class?.name                     || "(unnamed)";
+  if ("Function"    in nt) return nt.Function?.name                  || "(unnamed)";
+  if ("Interface"   in nt) return nt.Interface?.name                 || "(unnamed)";
+  if ("Enum"        in nt) return nt.Enum?.name                      || "(unnamed)";
+  if ("Variable"    in nt) return nt.Variable?.name                  || "(unnamed)";
+  if ("Lambda"      in nt) return "λ";
+  if ("ControlFlow" in nt) return nt.ControlFlow?.control_type       || "flow";
+  return "(unknown)";
 };
 
 const getKind = (n: IRNode): string => {
-  if ("Module"   in n.node_type) return "Module";
-  if ("Class"    in n.node_type) return "Class";
-  if ("Function" in n.node_type) return "Function";
+  if ("Module"      in n.node_type) return "Module";
+  if ("Class"       in n.node_type) return "Class";
+  if ("Function"    in n.node_type) return "Function";
+  if ("Interface"   in n.node_type) return "Interface";
+  if ("Enum"        in n.node_type) return "Enum";
+  if ("Variable"    in n.node_type) return "Variable";
+  if ("Lambda"      in n.node_type) return "Lambda";
+  if ("ControlFlow" in n.node_type) return "ControlFlow";
   return "Unknown";
 };
 
@@ -181,6 +191,56 @@ export default function DependencyGraph({ ir }: { ir: IRGraph }) {
         width: "label",
         height: "label",
         padding: "6px",
+      }
+    },
+
+    // ── Interface nodes (same pill style as Class, lighter teal) ─────────────
+    {
+      selector: 'node[kind = "Interface"]',
+      style: {
+        shape: "roundrectangle",
+        label: "data(label)",
+        "font-size": "10px",
+        "font-family": "ui-monospace, 'Cascadia Code', monospace",
+        "text-valign": "center",
+        "text-halign": "center",
+        color: "#0e1520",
+        "background-color": "#6abfb8",
+        "border-width": 0,
+        width: "label",
+        height: "label",
+        padding: "6px",
+      }
+    },
+
+    // ── Enum nodes (amber pill) ───────────────────────────────────────────────
+    {
+      selector: 'node[kind = "Enum"]',
+      style: {
+        shape: "roundrectangle",
+        label: "data(label)",
+        "font-size": "10px",
+        "font-family": "ui-monospace, 'Cascadia Code', monospace",
+        "text-valign": "center",
+        "text-halign": "center",
+        color: "#0e1520",
+        "background-color": "#c9a260",
+        "border-width": 0,
+        width: "label",
+        height: "label",
+        padding: "6px",
+      }
+    },
+
+    // ── Variable / Lambda / ControlFlow — tiny hidden dots ───────────────────
+    {
+      selector: 'node[kind = "Variable"], node[kind = "Lambda"], node[kind = "ControlFlow"], node[kind = "Unknown"]',
+      style: {
+        width: 6,
+        height: 6,
+        "background-color": "#3d5166",
+        "border-width": 0,
+        opacity: 0.4,
       }
     },
 
