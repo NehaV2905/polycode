@@ -562,13 +562,35 @@ class TreeSitterParser(BaseParser):
                         types.append(self._get_text(child, source))
                 return_type = ", ".join(types) if types else ""
         
+        # For method_declaration, extract receiver type as parent_scope so that
+        # struct methods (e.g. func (p *TCPPeer) Send()) get parent_scope="TCPPeer"
+        # instead of "<global>".  Package-level functions keep parent_scope=scope.
+        receiver_node = node.child_by_field_name("receiver")
+        parent_scope = scope
+        if receiver_node:
+            for child in receiver_node.children:
+                if child.type == "parameter_declaration":
+                    for subchild in child.children:
+                        if subchild.type == "type_identifier":
+                            parent_scope = self._get_text(subchild, source)
+                            break
+                        elif subchild.type == "pointer_type":
+                            # *TypeName → drill into type_identifier child
+                            for ptr_child in subchild.children:
+                                if ptr_child.type == "type_identifier":
+                                    parent_scope = self._get_text(ptr_child, source)
+                                    break
+                            break
+                    if parent_scope != scope:
+                        break
+
         # Extract Go doc comments
         docstring = self._get_preceding_comment(node, source)
 
         return IRFact("FunctionDeclared", {
             "name": name,
             "param_count": param_count,
-            "parent_scope": scope,
+            "parent_scope": parent_scope,
             "return_type": return_type,
             "decorators": [],  # Go doesn't have decorators
             "parameters": parameters,
