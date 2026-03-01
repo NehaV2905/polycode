@@ -65,6 +65,16 @@ export default function DependencyGraph({ ir }: { ir: IRGraph }) {
     };
   });
 
+  const allNodeIds = new Set([...moduleNodes, ...otherNodes].map(n => n.id));
+
+  // HasMember edges — pink dashed lines inside boxes
+  const memberEdges = ir.edges
+    .filter(e => allNodeIds.has(e.from) && allNodeIds.has(e.to))
+    .filter(e => e.edge_type === "HasMember" || (typeof e.edge_type === "object" && e.edge_type !== null && "HasMember" in (e.edge_type as object)))
+    .map((e, i) => ({
+      data: { id: `member-${i}`, source: e.from, target: e.to, kind: "HasMember" }
+    }));
+
   // Split Calls edges into:
   //   intra-file → drawn between function dots inside the same box
   //   inter-file → collapsed to module→module arrows (one per file pair, always visible)
@@ -72,6 +82,7 @@ export default function DependencyGraph({ ir }: { ir: IRGraph }) {
   const interEdgeMap = new Map<string, { fromMod: string; toMod: string; calls: string[] }>();
 
   ir.edges
+    .filter(e => allNodeIds.has(e.from) && allNodeIds.has(e.to))
     .filter(e => typeof e.edge_type === "object" && e.edge_type !== null && "Calls" in (e.edge_type as object))
     .forEach((e, i) => {
       const fromNode = nodeById.get(e.from);
@@ -184,6 +195,20 @@ export default function DependencyGraph({ ir }: { ir: IRGraph }) {
         "border-color": "#c46a82",
         width: 9,
         height: 9,
+      }
+    },
+
+    // ── HasMember: pink dashed lines inside a box ────────────────────────────
+    {
+      selector: 'edge[kind = "HasMember"]',
+      style: {
+        "line-color": "#a3536b",
+        "line-style": "dashed",
+        "line-dash-pattern": [6, 4],
+        "target-arrow-shape": "none",
+        "curve-style": "bezier",
+        width: 1.8,
+        opacity: 0.6,
       }
     },
 
@@ -304,11 +329,12 @@ export default function DependencyGraph({ ir }: { ir: IRGraph }) {
         <span className="legend-module">⬚ File ({moduleNodes.length})</span>
         <span className="legend-class">■ Class ({classCount})</span>
         <span className="legend-fn" style={{ color: "#a3536b" }}>● Fn ({fnCount})</span>
+        <span className="legend-member">- - Member ({memberEdges.length})</span>
         <span className="legend-calls" style={{ color: "#e8c87a" }}>→ Cross-file ({interEdges.length})</span>
         <span className="legend-hint">Scroll to zoom · drag to pan · click node/edge for details</span>
       </div>
       <CytoscapeComponent
-        elements={[...moduleElements, ...childElements, ...intraEdges, ...interEdges]}
+        elements={[...moduleElements, ...childElements, ...memberEdges, ...intraEdges, ...interEdges]}
         layout={layout as any}
         stylesheet={stylesheet as any}
         style={{ width: "100%", height: "calc(100% - 28px)" }}
