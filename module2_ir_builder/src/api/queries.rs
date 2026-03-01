@@ -183,6 +183,12 @@ impl<'a> GraphQuery<'a> {
                     if is_exported && name.starts_with("New") {
                         return false;
                     }
+                    // Functions whose names end with "Func" are typically assigned
+                    // to variables of a function type (e.g. HandshakeFunc, PathTransformFunc)
+                    // and invoked through that variable — no direct call edge is emitted.
+                    if name.ends_with("Func") {
+                        return false;
+                    }
                 }
 
                 // Java: methods annotated with known framework annotations are
