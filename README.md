@@ -99,9 +99,102 @@ sudo apt-get install -y nodejs
 
 ### 1. Python dependencies (Module 1)
 
+Module 1 uses **Tree-sitter** for multi-language parsing.  
+A virtual environment is strongly recommended for all platforms.
+
+---
+
+**Ubuntu / Debian (Linux)**
+
+Install required system packages:
+
 ```bash
+sudo apt update
+sudo apt install -y python3-venv python3-dev build-essential
+```
+Create and activate a virtual environment:
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+Install Python dependencies:
+
+```bash
+pip install --upgrade pip
 pip install -r requirements.txt
 ```
+
+**macOS**
+
+Create and activate a virtual environment:
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+
+Install dependencies:
+
+```bash
+pip install --upgrade pip
+pip install -r requirements.txt
+``` 
+
+macOS typically does not require additional system packages.
+
+**Windows (PowerShell)**
+
+Create virtual environment:
+
+```bash
+python -m venv venv
+```
+
+Activate it:
+
+```bash
+venv\Scripts\Activate.ps1
+```
+
+If activation is blocked, allow script execution:
+
+```bash
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+Install dependencies:
+
+```bash
+pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+**Tree-sitter Version Compatibility (Important)**
+
+Polycode requires compatible versions of:
+
+tree-sitter
+
+tree-sitter-languages
+
+If you encounter this error:
+
+```bash
+TypeError: __init__() takes exactly 1 argument (2 given)
+```
+
+Run the following:
+
+```bash
+pip uninstall tree-sitter tree-sitter-languages -y
+pip install tree-sitter==0.20.1
+pip install tree-sitter-languages==1.7.0
+```
+
+To prevent future issues, you may pin these versions inside requirements.txt:
+
+tree-sitter==0.20.1
+tree-sitter-languages==1.7.0
 
 ### 2. Rust workspace
 
