@@ -1,0 +1,14 @@
+# ── Module 1: Language Adapter (Python gRPC server) ──────────────────────────
+
+# Protocol Buffers and gRPC
+grpcio>=1.60.0
+grpcio-tools>=1.60.0
+protobuf>=4.25.0
+
+# Multi-language AST parsing (Tree-sitter)
+tree-sitter>=0.21.0
+tree-sitter-languages>=1.10.0
+
+# LSP (Language Server Protocol) support
+pygls>=1.3.0
+lsprotocol>=2.0.0
