@@ -161,9 +161,12 @@ impl<'a> GraphQuery<'a> {
                     return false;
                 }
 
-                // Go: exported struct methods (receiver type set as parent_scope,
-                // starts with uppercase) are dispatched through interfaces at runtime.
-                // Without type information we can't resolve the receiver, so skip them.
+                // Go: struct methods (any visibility) are dispatched through
+                // struct instances or interfaces at runtime. Without type info
+                // we can't resolve the receiver, so skip all of them.
+                // Also skip exported constructors (NewXxx): cross-package calls
+                // come in as selector MemberAccess events that the symbol table
+                // can't resolve, making them always appear to have no callers.
                 if fp.ends_with(".go") {
                     let parent_scope = match &node.node_type {
                         NodeType::Function { parent_scope, .. } => parent_scope.as_deref(),
@@ -171,11 +174,14 @@ impl<'a> GraphQuery<'a> {
                     };
                     if let Some(scope) = parent_scope {
                         // A real receiver type is neither empty nor the "<global>" sentinel
-                        let is_struct_method = !scope.is_empty() && scope != "<global>";
-                        let is_exported = name.chars().next().map_or(false, |c| c.is_uppercase());
-                        if is_struct_method && is_exported {
-                            return false;
+                        if !scope.is_empty() && scope != "<global>" {
+                            return false; // struct method (exported or unexported)
                         }
+                    }
+                    // Exported constructors follow the New* convention in Go
+                    let is_exported = name.chars().next().map_or(false, |c| c.is_uppercase());
+                    if is_exported && name.starts_with("New") {
+                        return false;
                     }
                 }
 
