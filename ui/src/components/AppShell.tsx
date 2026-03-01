@@ -24,7 +24,7 @@ export default function AppShell() {
           />
         </div>
         <div className="sidebar-bottom">
-          <ChatBox />
+          <ChatBox result={result} />
         </div>
       </aside>
       <MainPanel result={result} loading={loading} error={error} />
