@@ -34,12 +34,64 @@ Polycode translates source code from any supported language into a single, langu
 
 ## Prerequisites
 
-| Tool | Version |
-|------|---------|
-| Python | 3.10+ |
-| Rust / Cargo | 1.75+ |
-| Node.js | 18+ |
-| npm | 9+ |
+### System tools
+
+| Tool | Version | Purpose |
+|------|---------|---------|
+| Python | 3.10+ | Module 1 (language adapter) |
+| pip | 22+ | Python package manager |
+| Rust + Cargo | 1.75+ | Modules 2–4 and API server |
+| protoc | 3.x+ | Compile `.proto` files for gRPC (required before `cargo build`) |
+| Node.js | 18+ | React UI dev server |
+| npm | 9+ | UI package manager |
+| git | any | Runtime — used to clone repos for analysis |
+
+### Installing Rust
+
+If Rust is not installed, use [rustup](https://rustup.rs):
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source $HOME/.cargo/env
+```
+
+### Installing protoc
+
+`protoc` is required to compile the gRPC protobuf definitions used by Module 2.
+
+**macOS**
+```bash
+brew install protobuf
+```
+
+**Ubuntu / Debian**
+```bash
+sudo apt-get install -y protobuf-compiler
+```
+
+**Windows**
+Download the latest release from https://github.com/protocolbuffers/protobuf/releases
+and add the `bin/` directory to your `PATH`.
+
+Verify:
+```bash
+protoc --version   # should print libprotoc 3.x or higher
+```
+
+### Installing Node.js
+
+**macOS**
+```bash
+brew install node
+```
+
+**Ubuntu / Debian**
+```bash
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt-get install -y nodejs
+```
+
+**Windows / all platforms** — download from https://nodejs.org
 
 ---
 
@@ -52,6 +104,8 @@ pip install -r requirements.txt
 ```
 
 ### 2. Rust workspace
+
+Requires `protoc` to be installed and on your `PATH` before running this.
 
 ```bash
 cargo build --release
