@@ -15,6 +15,15 @@ export default function AnalysisOutput({ ir }: { ir: IRGraph }) {
   const calledIds       = new Set(callEdges.map(e => e.to));
   const unusedFunctions = functions.filter(fn => !calledIds.has(fn.id));
 
+  const nodeById = new Map(ir.nodes.map(n => [n.id, n]));
+
+  // Cross-file calls: caller and callee live in different files
+  const crossFileCalls = callEdges
+    .map(e => ({ from: nodeById.get(e.from), to: nodeById.get(e.to) }))
+    .filter(({ from, to }) =>
+      from && to && from.metadata.file_path !== to.metadata.file_path
+    ) as { from: IRNode; to: IRNode }[];
+
   return (
     <section className="analysis-output">
       <h2>Code Summary</h2>
@@ -76,6 +85,29 @@ export default function AnalysisOutput({ ir }: { ir: IRGraph }) {
               <li key={n.id}>
                 {fn.name}
                 <span className="module">line {n.metadata.line_number}</span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      <h3>Cross-file Calls</h3>
+      {crossFileCalls.length === 0 ? (
+        <p className="no-unused">None detected</p>
+      ) : (
+        <ul>
+          {crossFileCalls.map(({ from, to }, i) => {
+            const fromFn = getFnData(from);
+            const toFn   = getFnData(to);
+            const fromFile = from.metadata.file_path.split("/").pop();
+            const toFile   = to.metadata.file_path.split("/").pop();
+            return (
+              <li key={i}>
+                <span className="module">{fromFile}</span>
+                {" "}{fromFn?.name ?? from.id}
+                {" → "}
+                <span className="module">{toFile}</span>
+                {" "}{toFn?.name ?? to.id}
               </li>
             );
           })}

@@ -34,17 +34,21 @@ export default function DependencyGraph({ ir }: { ir: IRGraph }) {
   }));
 
   const allNodeIds = new Set(visibleNodes.map(n => n.id));
+  const nodeById   = new Map(visibleNodes.map(n => [n.id, n]));
 
   const edgeElements = ir.edges
     .filter(e => allNodeIds.has(e.from) && allNodeIds.has(e.to))
     .map((e, i) => {
       const isCalls = typeof e.edge_type === "object" && e.edge_type !== null && "Calls" in (e.edge_type as object);
+      const toNode  = nodeById.get(e.to);
+      const label   = isCalls && toNode ? getLabel(toNode) : "";
       return {
         data: {
           id: `edge-${i}`,
           source: e.from,
           target: e.to,
           kind: isCalls ? "Calls" : "HasMember",
+          label,
         }
       };
     });
@@ -154,6 +158,24 @@ export default function DependencyGraph({ ir }: { ir: IRGraph }) {
       }
     },
 
+    // ── Calls edge selected — show callee label ───────────────────────────────
+    {
+      selector: 'edge[kind = "Calls"]:selected',
+      style: {
+        label: "data(label)",
+        "font-size": "10px",
+        "font-family": "ui-monospace, 'Cascadia Code', monospace",
+        color: "#c9a870",
+        "text-background-color": "#0e1520",
+        "text-background-opacity": 0.9,
+        "text-background-shape": "roundrectangle",
+        "text-background-padding": "3px",
+        "text-rotation": "autorotate",
+        width: 2.5,
+        opacity: 1,
+      }
+    },
+
     // ── Hover / selected ─────────────────────────────────────────────────────
     {
       selector: "node:active",
@@ -209,7 +231,7 @@ export default function DependencyGraph({ ir }: { ir: IRGraph }) {
         <span className="legend-fn" style={{ color: "#a3536b" }}>● Fn ({fnCount})</span>
         <span className="legend-member">- - Member ({memberCount})</span>
         <span className="legend-calls" style={{ color: "#c9a870" }}>→ Calls ({callsCount})</span>
-        <span className="legend-hint">Scroll to zoom · drag to pan · click to select</span>
+        <span className="legend-hint">Scroll to zoom · drag to pan · click edge to see call target</span>
       </div>
       <CytoscapeComponent
         elements={[...nodeElements, ...edgeElements]}
