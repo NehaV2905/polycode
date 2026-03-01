@@ -1,11 +1,9 @@
-import { useEffect, useRef } from "react";
 import CytoscapeComponent from "react-cytoscapejs";
 import cytoscape from "cytoscape";
 // @ts-ignore — no bundled types for fcose
 import fcose from "cytoscape-fcose";
 import type { IRGraph, IRNode } from "../types";
 
-// Register fcose once
 if (!(cytoscape as any)._fcoseRegistered) {
   cytoscape.use(fcose);
   (cytoscape as any)._fcoseRegistered = true;
@@ -47,12 +45,14 @@ export default function DependencyGraph({ ir }: { ir: IRGraph }) {
     fileToModuleId.set(fp, m.id);
   }
 
+  const nodeById = new Map([...moduleNodes, ...otherNodes].map(n => [n.id, n]));
+
   // Module nodes → compound containers
   const moduleElements = moduleNodes.map(n => ({
     data: { id: n.id, label: getLabel(n), kind: "Module" }
   }));
 
-  // Class / Function nodes → children of their source-file container
+  // Class / Function nodes → nested inside their file's container
   const childElements = otherNodes.map(n => {
     const parentId = fileToModuleId.get(n.metadata.file_path);
     return {
@@ -65,29 +65,52 @@ export default function DependencyGraph({ ir }: { ir: IRGraph }) {
     };
   });
 
-  const allNodeIds = new Set([
-    ...moduleNodes.map(n => n.id),
-    ...otherNodes.map(n => n.id),
-  ]);
+  // Split Calls edges into:
+  //   intra-file → drawn between function dots inside the same box
+  //   inter-file → collapsed to module→module arrows (one per file pair, always visible)
+  const intraEdges: any[] = [];
+  const interEdgeMap = new Map<string, { fromMod: string; toMod: string; calls: string[] }>();
 
-  const nodeById = new Map([...moduleNodes, ...otherNodes].map(n => [n.id, n]));
-
-  const edgeElements = ir.edges
-    .filter(e => allNodeIds.has(e.from) && allNodeIds.has(e.to))
-    // Only Calls edges — HasMember is implicit inside the compound boxes
+  ir.edges
     .filter(e => typeof e.edge_type === "object" && e.edge_type !== null && "Calls" in (e.edge_type as object))
-    .map((e, i) => {
-      const toNode = nodeById.get(e.to);
-      return {
-        data: {
-          id: `edge-${i}`,
-          source: e.from,
-          target: e.to,
-          kind: "Calls",
-          label: toNode ? getLabel(toNode) : "",
+    .forEach((e, i) => {
+      const fromNode = nodeById.get(e.from);
+      const toNode   = nodeById.get(e.to);
+      if (!fromNode || !toNode) return;
+
+      const fromFile = fromNode.metadata.file_path;
+      const toFile   = toNode.metadata.file_path;
+
+      if (fromFile === toFile) {
+        // Intra-file: connect individual function/class nodes
+        intraEdges.push({
+          data: { id: `intra-${i}`, source: e.from, target: e.to, kind: "IntraCall", label: getLabel(toNode) }
+        });
+      } else {
+        // Inter-file: one arrow per ordered file pair, visible between boxes
+        const fromMod = fileToModuleId.get(fromFile);
+        const toMod   = fileToModuleId.get(toFile);
+        if (!fromMod || !toMod || fromMod === toMod) return;
+        const key = `${fromMod}→${toMod}`;
+        if (!interEdgeMap.has(key)) {
+          interEdgeMap.set(key, { fromMod, toMod, calls: [] });
         }
-      };
+        const callee = getLabel(toNode);
+        const entry  = interEdgeMap.get(key)!;
+        if (!entry.calls.includes(callee)) entry.calls.push(callee);
+      }
     });
+
+  // One visible edge per file-pair with the callee names as label
+  const interEdges = Array.from(interEdgeMap.values()).map(({ fromMod, toMod, calls }, i) => ({
+    data: {
+      id: `inter-${i}`,
+      source: fromMod,
+      target: toMod,
+      kind: "InterCall",
+      label: calls.slice(0, 4).join(", ") + (calls.length > 4 ? ` +${calls.length - 4}` : ""),
+    }
+  }));
 
   const stylesheet = [
     // ── Base ────────────────────────────────────────────────────────────────
@@ -164,23 +187,21 @@ export default function DependencyGraph({ ir }: { ir: IRGraph }) {
       }
     },
 
-    // ── Calls edges ──────────────────────────────────────────────────────────
+    // ── Intra-file calls (inside a box) ──────────────────────────────────────
     {
-      selector: 'edge[kind = "Calls"]',
+      selector: 'edge[kind = "IntraCall"]',
       style: {
         "line-color": "#c9a870",
         "target-arrow-color": "#c9a870",
         "target-arrow-shape": "triangle",
-        "arrow-scale": 1.2,
+        "arrow-scale": 1.1,
         "curve-style": "bezier",
-        width: 1.5,
-        opacity: 0.8,
+        width: 1.2,
+        opacity: 0.7,
       }
     },
-
-    // ── Selected edge — show callee label ────────────────────────────────────
     {
-      selector: 'edge[kind = "Calls"]:selected',
+      selector: 'edge[kind = "IntraCall"]:selected',
       style: {
         label: "data(label)",
         "font-size": "10px",
@@ -191,8 +212,41 @@ export default function DependencyGraph({ ir }: { ir: IRGraph }) {
         "text-background-shape": "roundrectangle",
         "text-background-padding": "3px",
         "text-rotation": "autorotate",
-        width: 2.5,
+        width: 2,
         opacity: 1,
+      }
+    },
+
+    // ── Inter-file calls (box → box, always labelled) ─────────────────────────
+    {
+      selector: 'edge[kind = "InterCall"]',
+      style: {
+        label: "data(label)",
+        "font-size": "9px",
+        "font-family": "ui-monospace, 'Cascadia Code', monospace",
+        color: "#e8c87a",
+        "text-background-color": "#0e1520",
+        "text-background-opacity": 0.88,
+        "text-background-shape": "roundrectangle",
+        "text-background-padding": "3px",
+        "text-rotation": "autorotate",
+        "line-color": "#e8c87a",
+        "target-arrow-color": "#e8c87a",
+        "target-arrow-shape": "triangle",
+        "arrow-scale": 1.3,
+        "curve-style": "bezier",
+        width: 2,
+        opacity: 0.9,
+      }
+    },
+    {
+      selector: 'edge[kind = "InterCall"]:selected',
+      style: {
+        width: 3,
+        opacity: 1,
+        "line-color": "#ffd97a",
+        "target-arrow-color": "#ffd97a",
+        color: "#ffd97a",
       }
     },
 
@@ -225,18 +279,14 @@ export default function DependencyGraph({ ir }: { ir: IRGraph }) {
     animate: false,
     quality: "default",
     randomize: true,
-    // Compound node spacing
-    nodeSeparation: 75,
-    // Edge lengths
-    idealEdgeLength: (edge: any) => 120,
-    edgeElasticity: (edge: any) => 0.45,
-    // Repulsion
-    nodeRepulsion: (node: any) => 6500,
+    nodeSeparation: 80,
+    idealEdgeLength: (edge: any) => edge.data("kind") === "InterCall" ? 200 : 80,
+    edgeElasticity: (edge: any) => edge.data("kind") === "InterCall" ? 0.6 : 0.35,
+    nodeRepulsion: () => 8000,
     gravity: 0.25,
     gravityRange: 3.8,
     gravityCompound: 1.0,
     gravityRangeCompound: 1.5,
-    // Iterations
     numIter: 2500,
     tile: true,
     tilingPaddingVertical: 10,
@@ -247,7 +297,6 @@ export default function DependencyGraph({ ir }: { ir: IRGraph }) {
 
   const fnCount    = otherNodes.filter(n => "Function" in n.node_type).length;
   const classCount = otherNodes.filter(n => "Class"    in n.node_type).length;
-  const callsCount = edgeElements.length;
 
   return (
     <div className="graph-container">
@@ -255,11 +304,11 @@ export default function DependencyGraph({ ir }: { ir: IRGraph }) {
         <span className="legend-module">⬚ File ({moduleNodes.length})</span>
         <span className="legend-class">■ Class ({classCount})</span>
         <span className="legend-fn" style={{ color: "#a3536b" }}>● Fn ({fnCount})</span>
-        <span className="legend-calls" style={{ color: "#c9a870" }}>→ Calls ({callsCount})</span>
-        <span className="legend-hint">Scroll to zoom · drag to pan · click edge to see call target</span>
+        <span className="legend-calls" style={{ color: "#e8c87a" }}>→ Cross-file ({interEdges.length})</span>
+        <span className="legend-hint">Scroll to zoom · drag to pan · click node/edge for details</span>
       </div>
       <CytoscapeComponent
-        elements={[...moduleElements, ...childElements, ...edgeElements]}
+        elements={[...moduleElements, ...childElements, ...intraEdges, ...interEdges]}
         layout={layout as any}
         stylesheet={stylesheet as any}
         style={{ width: "100%", height: "calc(100% - 28px)" }}
