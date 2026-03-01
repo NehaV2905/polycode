@@ -154,6 +154,29 @@ Open http://localhost:5173 in your browser, then either:
 - **Upload files** — drag one or more source files into the sidebar
 - **Enter a repo URL** — paste a GitHub/GitLab HTTPS URL and click Analyse
 
+**Tree-sitter Version Compatibility (Important)**
+
+Polycode requires compatible versions of:
+
+tree-sitter
+
+tree-sitter-languages
+
+If you encounter this error in module 1:
+
+```bash
+TypeError: __init__() takes exactly 1 argument (2 given)
+```
+
+Run the following:
+
+```bash
+pip uninstall tree-sitter tree-sitter-languages -y
+pip install tree-sitter==0.20.1
+pip install tree-sitter-languages==1.7.0
+```
+Run the system again using the above steps.
+
 ---
 
 ## CLI Usage (without UI)
