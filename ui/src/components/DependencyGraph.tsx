@@ -46,7 +46,15 @@ const getKind = (n: IRNode): string => {
 
 export default function DependencyGraph({ ir }: { ir: IRGraph }) {
   const moduleNodes = ir.nodes.filter(isSourceModule).filter(n => "Module" in n.node_type);
-  const otherNodes  = ir.nodes.filter(n => !("Module" in n.node_type));
+  // Only meaningful structural nodes — skip Variable/Lambda/ControlFlow noise
+  const otherNodes  = ir.nodes.filter(n => {
+    const nt = n.node_type as any;
+    if ("Module"      in nt) return false;
+    if ("Variable"    in nt) return false;
+    if ("Lambda"      in nt) return false;
+    if ("ControlFlow" in nt) return false;
+    return true; // Function, Class, Interface, Enum
+  });
 
   // file_path → module node id
   const fileToModuleId = new Map<string, string>();
@@ -229,18 +237,6 @@ export default function DependencyGraph({ ir }: { ir: IRGraph }) {
         width: "label",
         height: "label",
         padding: "6px",
-      }
-    },
-
-    // ── Variable / Lambda / ControlFlow — tiny hidden dots ───────────────────
-    {
-      selector: 'node[kind = "Variable"], node[kind = "Lambda"], node[kind = "ControlFlow"], node[kind = "Unknown"]',
-      style: {
-        width: 6,
-        height: 6,
-        "background-color": "#3d5166",
-        "border-width": 0,
-        opacity: 0.4,
       }
     },
 
