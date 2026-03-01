@@ -167,7 +167,11 @@ class TreeSitterParser(BaseParser):
                 "method_declaration": {"method": "field", "field": "name"}
             }
         elif language_name == "java":
-            return {"method_declaration": {"method": "field", "field": "name"}}
+            return {
+                "method_declaration": {"method": "field", "field": "name"},
+                "class_declaration": {"method": "field", "field": "name"},
+                "interface_declaration": {"method": "field", "field": "name"},
+            }
         elif language_name == "c":
             return {"function_definition": {"method": "c_function"}}
         elif language_name == "rust":
@@ -558,13 +562,35 @@ class TreeSitterParser(BaseParser):
                         types.append(self._get_text(child, source))
                 return_type = ", ".join(types) if types else ""
         
+        # For method_declaration, extract receiver type as parent_scope so that
+        # struct methods (e.g. func (p *TCPPeer) Send()) get parent_scope="TCPPeer"
+        # instead of "<global>".  Package-level functions keep parent_scope=scope.
+        receiver_node = node.child_by_field_name("receiver")
+        parent_scope = scope
+        if receiver_node:
+            for child in receiver_node.children:
+                if child.type == "parameter_declaration":
+                    for subchild in child.children:
+                        if subchild.type == "type_identifier":
+                            parent_scope = self._get_text(subchild, source)
+                            break
+                        elif subchild.type == "pointer_type":
+                            # *TypeName → drill into type_identifier child
+                            for ptr_child in subchild.children:
+                                if ptr_child.type == "type_identifier":
+                                    parent_scope = self._get_text(ptr_child, source)
+                                    break
+                            break
+                    if parent_scope != scope:
+                        break
+
         # Extract Go doc comments
         docstring = self._get_preceding_comment(node, source)
 
         return IRFact("FunctionDeclared", {
             "name": name,
             "param_count": param_count,
-            "parent_scope": scope,
+            "parent_scope": parent_scope,
             "return_type": return_type,
             "decorators": [],  # Go doesn't have decorators
             "parameters": parameters,
@@ -775,12 +801,16 @@ class TreeSitterParser(BaseParser):
         elif any(child.type == "void_type" for child in node.children):
             return_type = "void"
         
-        # Extract annotations
+        # Extract annotations (may be direct children or inside a modifiers node)
         decorators = []
         for child in node.children:
             if child.type in ["marker_annotation", "annotation"]:
                 decorators.append(self._get_text(child, source))
-        
+            elif child.type == "modifiers":
+                for mod_child in child.children:
+                    if mod_child.type in ["marker_annotation", "annotation"]:
+                        decorators.append(self._get_text(mod_child, source))
+
         # Extract Javadoc
         docstring = self._get_preceding_comment(node, source)
 
@@ -841,15 +871,19 @@ class TreeSitterParser(BaseParser):
                 if child.type == "type_identifier":
                     base_classes.append(self._get_text(child, source))
         
-        # Extract annotations
+        # Extract annotations (may be direct children or inside a modifiers node)
         decorators = []
         for child in node.children:
             if child.type in ["marker_annotation", "annotation"]:
                 decorators.append(self._get_text(child, source))
-        
+            elif child.type == "modifiers":
+                for mod_child in child.children:
+                    if mod_child.type in ["marker_annotation", "annotation"]:
+                        decorators.append(self._get_text(mod_child, source))
+
         # Extract Javadoc
         docstring = self._get_preceding_comment(node, source)
-        
+
         return IRFact("ClassDeclared", {
             "name": name,
             "base_classes": base_classes,

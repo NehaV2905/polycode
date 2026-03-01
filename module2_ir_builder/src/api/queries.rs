@@ -118,11 +118,172 @@ impl<'a> GraphQuery<'a> {
 
     /// Find all functions that are never called (unused functions)
     pub fn find_unused_functions(&self, file_path: &str) -> Vec<FunctionInfo> {
-        self.graph
-            .get_file_nodes(file_path)
+        let file_nodes = self.graph.get_file_nodes(file_path);
+
+        // Build a name → node map covering both classes and interfaces.
+        // Used for cross-node lookups: Lombok annotations, Spring Data JPA,
+        // and skipping interface method declarations entirely.
+        let type_map: std::collections::HashMap<&str, &IRNode> = file_nodes
+            .iter()
+            .filter_map(|node| match &node.node_type {
+                NodeType::Class { name, .. } => Some((name.as_str(), *node)),
+                NodeType::Interface { name, .. } => Some((name.as_str(), *node)),
+                _ => None,
+            })
+            .collect();
+
+        file_nodes
             .iter()
             .filter(|node| {
                 matches!(node.node_type, NodeType::Function { .. })
+            })
+            .filter(|node| {
+                // Language-aware filtering: skip functions that are invoked by the
+                // runtime/framework rather than by direct call edges in user code.
+                let fp = &node.metadata.file_path;
+                let name = match &node.node_type {
+                    NodeType::Function { name, .. } => name.as_str(),
+                    _ => return true,
+                };
+
+                // Skip universal entry points (all languages)
+                if name == "main" || name == "init" {
+                    return false;
+                }
+
+                // Go: test/benchmark/example functions in *_test.go files are
+                // invoked by `go test` via naming convention, not direct calls.
+                if fp.ends_with("_test.go")
+                    && (name.starts_with("Test")
+                        || name.starts_with("Benchmark")
+                        || name.starts_with("Example"))
+                {
+                    return false;
+                }
+
+                // Go: struct methods (any visibility) are dispatched through
+                // struct instances or interfaces at runtime. Without type info
+                // we can't resolve the receiver, so skip all of them.
+                // Also skip exported constructors (NewXxx): cross-package calls
+                // come in as selector MemberAccess events that the symbol table
+                // can't resolve, making them always appear to have no callers.
+                if fp.ends_with(".go") {
+                    let parent_scope = match &node.node_type {
+                        NodeType::Function { parent_scope, .. } => parent_scope.as_deref(),
+                        _ => None,
+                    };
+                    if let Some(scope) = parent_scope {
+                        // A real receiver type is neither empty nor the "<global>" sentinel
+                        if !scope.is_empty() && scope != "<global>" {
+                            return false; // struct method (exported or unexported)
+                        }
+                    }
+                    // Exported constructors follow the New* convention in Go
+                    let is_exported = name.chars().next().map_or(false, |c| c.is_uppercase());
+                    if is_exported && name.starts_with("New") {
+                        return false;
+                    }
+                    // Functions whose names end with "Func" are typically assigned
+                    // to variables of a function type (e.g. HandshakeFunc, PathTransformFunc)
+                    // and invoked through that variable — no direct call edge is emitted.
+                    if name.ends_with("Func") {
+                        return false;
+                    }
+                }
+
+                // Java: methods annotated with known framework annotations are
+                // invoked by Spring/JUnit via reflection, not direct call edges.
+                if fp.ends_with(".java") {
+                    const JAVA_FRAMEWORK_ANNOTATIONS: &[&str] = &[
+                        // Spring beans & components
+                        "@Bean", "@Component", "@Service", "@Repository",
+                        "@Controller", "@RestController",
+                        // Spring MVC endpoints
+                        "@GetMapping", "@PostMapping", "@PutMapping",
+                        "@DeleteMapping", "@PatchMapping", "@RequestMapping",
+                        // JVM contract overrides
+                        "@Override",
+                        // Spring lifecycle & events
+                        "@Scheduled", "@EventListener",
+                        "@PostConstruct", "@PreDestroy",
+                        // JUnit test lifecycle
+                        "@Test", "@BeforeEach", "@AfterEach",
+                        "@BeforeAll", "@AfterAll",
+                    ];
+                    let has_framework_annotation =
+                        node.metadata.decorators.iter().any(|d| {
+                            // Normalize to just the annotation name (strip parameters)
+                            let base = d
+                                .split(|c: char| c == '(' || c.is_whitespace())
+                                .next()
+                                .unwrap_or(d.as_str());
+                            JAVA_FRAMEWORK_ANNOTATIONS.contains(&base)
+                        });
+                    if has_framework_annotation {
+                        return false;
+                    }
+
+                    // Cross-node checks: look up the enclosing class or interface
+                    let parent_scope = match &node.node_type {
+                        NodeType::Function { parent_scope, .. } => parent_scope.as_deref(),
+                        _ => None,
+                    };
+                    if let Some(scope) = parent_scope {
+                        if let Some(&type_node) = type_map.get(scope) {
+                            // Interface method declarations are never called directly —
+                            // Java dispatches through concrete implementations at runtime.
+                            if matches!(type_node.node_type, NodeType::Interface { .. }) {
+                                return false;
+                            }
+
+                            // Lombok: skip getters/setters on @Data/@Getter/@Setter/@Value classes.
+                            // Lombok generates these at bytecode level — no call edges in source.
+                            const LOMBOK_CLASS_ANNOTATIONS: &[&str] =
+                                &["@Data", "@Getter", "@Setter", "@Value"];
+                            let has_lombok =
+                                type_node.metadata.decorators.iter().any(|d| {
+                                    let base = d
+                                        .split(|c: char| c == '(' || c.is_whitespace())
+                                        .next()
+                                        .unwrap_or(d.as_str());
+                                    LOMBOK_CLASS_ANNOTATIONS.contains(&base)
+                                });
+                            if has_lombok
+                                && ((name.starts_with("get") && name.len() > 3)
+                                    || (name.starts_with("set") && name.len() > 3)
+                                    || (name.starts_with("is") && name.len() > 2))
+                            {
+                                return false;
+                            }
+
+                            // Spring Data JPA: skip methods on repository classes/interfaces.
+                            // Spring generates implementations at runtime via proxy.
+                            const SPRING_DATA_REPOS: &[&str] = &[
+                                "JpaRepository",
+                                "CrudRepository",
+                                "PagingAndSortingRepository",
+                                "MongoRepository",
+                                "ReactiveMongoRepository",
+                                "ListCrudRepository",
+                            ];
+                            let base_types = match &type_node.node_type {
+                                NodeType::Class { base_classes, .. } => base_classes.as_slice(),
+                                NodeType::Interface { base_interfaces, .. } => base_interfaces.as_slice(),
+                                _ => &[],
+                            };
+                            let is_spring_repo = base_types.iter().any(|b| {
+                                // Handle generics: "JpaRepository<User, Long>" -> "JpaRepository"
+                                let base_name = b.split('<').next().unwrap_or(b.as_str()).trim();
+                                SPRING_DATA_REPOS.contains(&base_name)
+                            });
+                            if is_spring_repo {
+                                return false;
+                            }
+                        }
+                    }
+                }
+
+                true
             })
             .filter(|node| {
                 // A function is unused if it has no incoming Calls edges

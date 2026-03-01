@@ -72,8 +72,10 @@ impl GraphBuilder {
         line_number: i32,
         parent_scope: Option<String>,
         timestamp: i64,
+        decorators: Vec<String>,
     ) -> Result<NodeId> {
-        let metadata = self.create_metadata(line_number, timestamp)?;
+        let mut metadata = self.create_metadata(line_number, timestamp)?;
+        metadata.decorators = decorators;
 
         let node = IRNode::new(
             NodeType::Function {
@@ -107,8 +109,10 @@ impl GraphBuilder {
         line_number: i32,
         parent_scope: Option<String>,
         timestamp: i64,
+        decorators: Vec<String>,
     ) -> Result<NodeId> {
-        let metadata = self.create_metadata(line_number, timestamp)?;
+        let mut metadata = self.create_metadata(line_number, timestamp)?;
+        metadata.decorators = decorators;
 
         let node = IRNode::new(
             NodeType::Function {
@@ -139,8 +143,10 @@ impl GraphBuilder {
         base_classes: Vec<String>,
         line_number: i32,
         timestamp: i64,
+        decorators: Vec<String>,
     ) -> Result<NodeId> {
-        let metadata = self.create_metadata(line_number, timestamp)?;
+        let mut metadata = self.create_metadata(line_number, timestamp)?;
+        metadata.decorators = decorators;
 
         let node = IRNode::new(
             NodeType::Class {
@@ -548,6 +554,7 @@ impl GraphBuilder {
             line_number,
             timestamp,
             file_path,
+            decorators: Vec::new(),
             custom: HashMap::new(),
         })
     }
@@ -581,6 +588,7 @@ impl GraphBuilder {
             line_number: 0,
             timestamp,
             file_path: module_name.to_string(),
+            decorators: Vec::new(),
             custom: HashMap::new(),
         };
 

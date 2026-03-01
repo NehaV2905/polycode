@@ -32,6 +32,7 @@ pub fn process_event(builder: &mut GraphBuilder, event: ir_events::IrEvent) -> R
                     Some(e.parent_scope)
                 },
                 timestamp,
+                e.decorators,
             )?;
         }
 
@@ -47,6 +48,7 @@ pub fn process_event(builder: &mut GraphBuilder, event: ir_events::IrEvent) -> R
                     Some(e.parent_scope)
                 },
                 timestamp,
+                e.decorators,
             )?;
         }
 
@@ -57,6 +59,7 @@ pub fn process_event(builder: &mut GraphBuilder, event: ir_events::IrEvent) -> R
                 e.base_classes,
                 e.line_number,
                 timestamp,
+                e.decorators,
             )?;
         }
 
