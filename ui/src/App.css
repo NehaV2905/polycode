@@ -808,3 +808,72 @@
   transform: translateY(-2px);
   box-shadow: 0 0 20px rgba(213, 184, 147, 0.5);
 }
+
+/* ── INPUT MODE TOGGLE ── */
+.input-mode-toggle {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 1rem;
+}
+
+.mode-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 6px 12px;
+  border-radius: 5px;
+  border: 1px solid rgba(97, 120, 145, 0.25);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: rgba(97, 120, 145, 0.05);
+  user-select: none;
+}
+
+.mode-option input[type="radio"] {
+  display: none;
+}
+
+.mode-option:hover {
+  border-color: rgba(213, 184, 147, 0.3);
+  color: var(--tan);
+  background: rgba(213, 184, 147, 0.05);
+}
+
+.mode-option.active {
+  border-color: var(--tan);
+  color: var(--tan);
+  background: rgba(213, 184, 147, 0.1);
+  box-shadow: 0 0 10px rgba(213, 184, 147, 0.15);
+}
+
+/* ── REPO INPUT ── */
+.repo-input-wrapper {
+  margin-bottom: 0.5rem;
+}
+
+.repo-input {
+  width: 100%;
+  background: rgba(97, 120, 145, 0.06);
+  border: 1px solid rgba(97, 120, 145, 0.25);
+  border-radius: 6px;
+  padding: 9px 12px;
+  font-size: 0.78rem;
+  color: var(--text);
+  outline: none;
+  font-family: monospace;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.repo-input:focus {
+  border-color: var(--tan);
+  box-shadow: 0 0 10px rgba(213, 184, 147, 0.15);
+}
+
+.repo-input::placeholder {
+  color: var(--text-dim);
+  font-size: 0.72rem;
+}

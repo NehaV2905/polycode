@@ -8,7 +8,7 @@ type Message = {
 
 const suggestions = [
   "Find unused functions",
-  "Show call graph",
+  "List all functions",
   "List all classes",
   "Check dependencies",
 ];
