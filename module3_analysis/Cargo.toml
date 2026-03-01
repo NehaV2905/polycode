@@ -8,12 +8,23 @@ module2_ir_builder = { path = "../module2_ir_builder" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 anyhow = "1.0"
-tokio = { version = "1.35", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.35", features = ["macros", "rt-multi-thread", "full"] }
 clap = { version = "4.4", features = ["derive"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
 tempfile = "3"
 
+# gRPC — added for module3_server
+tonic = "0.11"
+prost = "0.12"
+
+[build-dependencies]
+tonic-build = "0.11"
+
 [[bin]]
 name = "module3"
 path = "src/main.rs"
+
+[[bin]]
+name = "module3_server"
+path = "src/server.rs"

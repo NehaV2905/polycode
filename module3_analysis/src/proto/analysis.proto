@@ -1,0 +1,89 @@
+syntax = "proto3";
+
+package analysis;
+
+// ── Request types ──────────────────────────────────────────────────────────
+
+message FileRequest {
+  string file_path = 1;
+}
+
+message ImpactRequest {
+  string file_path     = 1;
+  string target_symbol = 2;
+}
+
+message EmptyRequest {}
+
+// ── Response types ─────────────────────────────────────────────────────────
+
+message DeadCodeResponse {
+  string          file_path        = 1;
+  repeated string unused_functions = 2;  // function names only
+}
+
+message CallEdge {
+  string caller = 1;
+  string callee = 2;
+}
+
+message CallGraphResponse {
+  string            file_path = 1;
+  repeated string   nodes     = 2;  // function names
+  repeated CallEdge edges     = 3;
+}
+
+message DependencyInfo {
+  string          module_name    = 1;
+  repeated string imported_names = 2;
+  bool            is_wildcard    = 3;
+}
+
+message DependencyResponse {
+  string                      file_path = 1;
+  map<string, DependencyInfo> imports   = 2;  // module_path → info
+}
+
+message ImpactResponse {
+  string             target_symbol       = 1;
+  string             target_file         = 2;
+  repeated string    direct_impacts      = 3;  // function names
+  repeated string    transitive_impacts  = 4;  // function names
+  map<string, int32> impact_depth_levels = 5;
+}
+
+message FullAnalysisResponse {
+  repeated string    tracked_files       = 1;
+  CallGraphResponse  global_call_graph   = 2;
+  DependencyResponse global_dependencies = 3;
+  DeadCodeResponse   global_dead_code    = 4;
+  repeated ImpactResponse cross_file_impacts = 5;
+}
+
+message TrackedFilesResponse {
+  repeated string file_paths = 1;
+}
+
+message HealthResponse {
+  bool  ok         = 1;
+  int32 node_count = 2;
+  int32 edge_count = 3;
+  int32 file_count = 4;
+}
+
+// ── Service ────────────────────────────────────────────────────────────────
+
+service AnalysisService {
+  // File-scoped
+  rpc GetDeadCode     (FileRequest)   returns (DeadCodeResponse);
+  rpc GetCallGraph    (FileRequest)   returns (CallGraphResponse);
+  rpc GetDependencies (FileRequest)   returns (DependencyResponse);
+  rpc GetImpact       (ImpactRequest) returns (ImpactResponse);
+
+  // Codebase-scoped
+  rpc GetFullAnalysis (EmptyRequest)  returns (FullAnalysisResponse);
+  rpc GetTrackedFiles (EmptyRequest)  returns (TrackedFilesResponse);
+
+  // Utility
+  rpc HealthCheck     (EmptyRequest)  returns (HealthResponse);
+}

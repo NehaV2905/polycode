@@ -1,0 +1,7 @@
+fastapi
+uvicorn[standard]
+anthropic
+grpcio
+grpcio-tools
+python-dotenv
+pydantic

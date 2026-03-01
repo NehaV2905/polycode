@@ -2,6 +2,7 @@ pub mod analysis;
 pub mod cache;
 pub mod models;
 pub mod queries;
+pub mod grpc;
 
 use module2_ir_builder::api::GraphQuery;
 
