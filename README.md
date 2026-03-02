@@ -237,6 +237,7 @@ polycode/
 ├── module2_ir_builder/     # Rust  — IR graph construction (library)
 ├── module3_analysis/       # Rust  — Static analysis engine (library + binary)
 ├── module4_fixer/          # Rust  — AI fix suggester (binary, CLI only)
+├── chatbot/                # Python  — LLM Interface with Groq that answers User questions about codebase in natural language
 ├── api_server/             # Rust  — HTTP API bridging UI and pipeline
 ├── ui/                     # TypeScript/React — web frontend
 ├── Cargo.toml              # Rust workspace
