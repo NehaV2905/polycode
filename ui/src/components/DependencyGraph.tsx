@@ -82,53 +82,33 @@ export default function DependencyGraph({ ir }: { ir: IRGraph }) {
       data: { id: `member-${i}`, source: e.from, target: e.to, kind: "HasMember" }
     }));
 
-  // Split Calls edges into:
-  //   intra-file → drawn between function dots inside the same box
-  //   inter-file → collapsed to module→module arrows (one per file pair, always visible)
-  const intraEdges: any[] = [];
-  const interEdgeMap = new Map<string, { fromMod: string; toMod: string; calls: string[] }>();
-
-  ir.edges
+  // All Calls edges drawn as direct function→function arrows.
+  // For cross-file calls Cytoscape routes the arrow between compound boxes automatically.
+  const seen = new Set<string>();
+  const callEdges = ir.edges
     .filter(e => allNodeIds.has(e.from) && allNodeIds.has(e.to))
     .filter(e => typeof e.edge_type === "object" && e.edge_type !== null && "Calls" in (e.edge_type as object))
-    .forEach((e, i) => {
+    .filter(e => {
+      const key = `${e.from}→${e.to}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .map((e, i) => {
+      const toNode  = nodeById.get(e.to);
       const fromNode = nodeById.get(e.from);
-      const toNode   = nodeById.get(e.to);
-      if (!fromNode || !toNode) return;
-
-      const fromFile = fromNode.metadata.file_path;
-      const toFile   = toNode.metadata.file_path;
-
-      if (fromFile === toFile) {
-        // Intra-file: connect individual function/class nodes
-        intraEdges.push({
-          data: { id: `intra-${i}`, source: e.from, target: e.to, kind: "IntraCall", label: getLabel(toNode) }
-        });
-      } else {
-        // Inter-file: one arrow per ordered file pair, visible between boxes
-        const fromMod = fileToModuleId.get(fromFile);
-        const toMod   = fileToModuleId.get(toFile);
-        if (!fromMod || !toMod || fromMod === toMod) return;
-        const key = `${fromMod}→${toMod}`;
-        if (!interEdgeMap.has(key)) {
-          interEdgeMap.set(key, { fromMod, toMod, calls: [] });
+      const crossFile = fromNode && toNode &&
+        fromNode.metadata.file_path !== toNode.metadata.file_path;
+      return {
+        data: {
+          id: `call-${i}`,
+          source: e.from,
+          target: e.to,
+          kind: crossFile ? "InterCall" : "IntraCall",
+          label: toNode ? getLabel(toNode) : "",
         }
-        const callee = getLabel(toNode);
-        const entry  = interEdgeMap.get(key)!;
-        if (!entry.calls.includes(callee)) entry.calls.push(callee);
-      }
+      };
     });
-
-  // One visible edge per file-pair with the callee names as label
-  const interEdges = Array.from(interEdgeMap.values()).map(({ fromMod, toMod, calls }, i) => ({
-    data: {
-      id: `inter-${i}`,
-      source: fromMod,
-      target: toMod,
-      kind: "InterCall",
-      label: calls.slice(0, 4).join(", ") + (calls.length > 4 ? ` +${calls.length - 4}` : ""),
-    }
-  }));
 
   const stylesheet = [
     // ── Base ────────────────────────────────────────────────────────────────
@@ -375,11 +355,11 @@ export default function DependencyGraph({ ir }: { ir: IRGraph }) {
         <span className="legend-class">■ Class ({classCount})</span>
         <span className="legend-fn" style={{ color: "#a3536b" }}>● Fn ({fnCount})</span>
         <span className="legend-member">- - Member ({memberEdges.length})</span>
-        <span className="legend-calls" style={{ color: "#e8c87a" }}>→ Cross-file ({interEdges.length})</span>
+        <span className="legend-calls" style={{ color: "#e8c87a" }}>→ Calls ({callEdges.length})</span>
         <span className="legend-hint">Scroll to zoom · drag to pan · click node/edge for details</span>
       </div>
       <CytoscapeComponent
-        elements={[...moduleElements, ...childElements, ...memberEdges, ...intraEdges, ...interEdges]}
+        elements={[...moduleElements, ...childElements, ...memberEdges, ...callEdges]}
         layout={layout as any}
         stylesheet={stylesheet as any}
         style={{ width: "100%", height: "calc(100% - 28px)" }}
