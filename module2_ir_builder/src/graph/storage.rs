@@ -94,6 +94,15 @@ impl IRGraph {
             .copied()
     }
 
+    /// Look up a symbol by name across all files (cross-file call resolution).
+    /// Returns the first match found in any file.
+    pub fn lookup_symbol_global(&self, symbol_name: &str) -> Option<NodeId> {
+        self.symbol_table
+            .iter()
+            .find(|((_, name), _)| name == symbol_name)
+            .map(|(_, id)| *id)
+    }
+
     /// Get all nodes in a specific file
     pub fn get_file_nodes(&self, file_path: &str) -> Vec<&IRNode> {
         self.file_nodes

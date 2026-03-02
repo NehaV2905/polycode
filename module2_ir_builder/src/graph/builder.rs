@@ -560,8 +560,13 @@ impl GraphBuilder {
     }
 
     fn lookup_symbol(&self, name: &str) -> Option<NodeId> {
-        let file_path = self.current_file.as_ref()?;
-        self.graph.lookup_symbol(file_path, name)
+        // Try current-file first; fall back to global search for cross-file calls
+        if let Some(file_path) = self.current_file.as_ref() {
+            if let Some(id) = self.graph.lookup_symbol(file_path, name) {
+                return Some(id);
+            }
+        }
+        self.graph.lookup_symbol_global(name)
     }
 
     fn link_to_parent(
