@@ -14,6 +14,7 @@
   --green:       #4ec94e;
   --text:        #cdd6e4;
   --text-dim:    #617891;
+  font-size: 20px;
 }
 
 /* ══════════════════════════════════════
@@ -31,8 +32,8 @@
 ══════════════════════════════════════ */
 .app-shell {
   display: grid;
-  grid-template-columns: 300px 1fr;
-  grid-template-rows: 1fr 36px;
+  grid-template-columns: 350px 1fr;
+  grid-template-rows: 1fr;
   height: 100vh;
   background: var(--dark-bg);
   font-family: 'Segoe UI', system-ui, sans-serif;
@@ -215,7 +216,7 @@
   padding: 1.6rem;
   position: relative;
   overflow-y: auto;
-  max-height: 500px;
+  max-height: 700px;
   transition: border-color 0.3s, box-shadow 0.3s;
   animation: fadeSlideIn 0.5s ease forwards;
   flex-shrink: 0;
@@ -342,7 +343,7 @@
   background: var(--card-bg);
   border: 1px solid var(--border);
   border-radius: 10px;
-  height: 580px;
+  height: 700px;
   min-height: 580px;
   flex-shrink: 0;
   overflow: hidden;
@@ -381,23 +382,6 @@
 .legend-fn     { color: #617891; }
 .legend-member { color: #a3536b; font-weight: 600; }
 .legend-hint   { margin-left: auto; color: #617891; font-style: italic; }
-
-/* ══════════════════════════════════════
-   STATUS BAR
-══════════════════════════════════════ */
-.status-bar {
-  grid-column: 2;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 1.4rem;
-  background: #0a0f18;
-  border-top: 1px solid var(--border);
-  font-size: 0.65rem;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  color: var(--text-dim);
-}
 
 .landing-page {
   height: 100vh;
