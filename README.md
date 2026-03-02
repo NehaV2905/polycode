@@ -145,12 +145,37 @@ cargo run -p api_server
 
 ### Terminal 3 — Chatbot (FastAPI)
 
+The chatbot requires uvicorn, groq and dotenv to be installed.
+
+**macOS/Linux**
+
+```bash
+python3 -m pip install fastapi uvicorn groq python-dotenv
+```
+OR
+
+```bash
+python3 -m pip install --user fastapi uvicorn groq python-dotenv
+```
+
+**Windows**
+
+```bash
+python -m pip install fastapi uvicorn groq python-dotenv
+```
+
+OR
+
+```bash
+python -m pip install --user fastapi uvicorn groq python-dotenv
+```
+
 The chatbot server exposes the natural language interface over the analysis pipeline.
 
 ```bash
 cd chatbot
 $env:PYTHONPATH = "."         # Windows (PowerShell)
-# export PYTHONPATH=.         # Mac/Linux
+export PYTHONPATH=.         # Mac/Linux
 
 uvicorn main:app --reload --port 8080
 # Listening on http://0.0.0.0:8080
