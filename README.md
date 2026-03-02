@@ -121,7 +121,7 @@ cd ui && npm install
 
 ## Running the System
 
-The system requires **three processes** running concurrently. Open three terminals.
+The system requires **four processes** running concurrently. Open four terminals.
 
 ### Terminal 1 — Module 1 (gRPC server)
 
@@ -133,7 +133,7 @@ python test_integration_v3.py
 
 ### Terminal 2 — API server
 
-The API server bridges the UI to the analysis pipeline.
+The API server bridges the analysis pipeline to the chatbot and UI.
 
 ```bash
 # Optional: set GROQ_API_KEY for AI fix suggestions
@@ -143,7 +143,20 @@ cargo run -p api_server
 # Listening on http://0.0.0.0:3000
 ```
 
-### Terminal 3 — UI dev server
+### Terminal 3 — Chatbot (FastAPI)
+
+The chatbot server exposes the natural language interface over the analysis pipeline.
+
+```bash
+cd chatbot
+$env:PYTHONPATH = "."         # Windows (PowerShell)
+# export PYTHONPATH=.         # Mac/Linux
+
+uvicorn main:app --reload --port 8080
+# Listening on http://0.0.0.0:8080
+```
+
+### Terminal 4 — UI dev server
 
 ```bash
 cd ui && npm run dev
