@@ -115,7 +115,7 @@ export default function AnalysisOutput({ ir }: { ir: IRGraph }) {
         {crossFileCalls.length === 0 ? (
           <p className="no-unused">None detected</p>
         ) : (
-          <ul>
+          <ul className="cross-file-list">
             {crossFileCalls.map(({ from, to }, i) => {
               const fromFn = getFnData(from);
               const toFn   = getFnData(to);
