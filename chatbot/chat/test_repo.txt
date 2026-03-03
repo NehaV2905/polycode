@@ -1,0 +1,143 @@
+# Codebase: https://github.com/NehaV2905/polycode-test-repo
+# Languages: Python (parsed), C, Go, Java, Ruby, Rust (modules detected, not parsed)
+# Files parsed: python/models.py, python/pipeline.py
+
+=== FILE: python/models.py ===
+Imports: __future__, uuid, dataclasses, datetime, enum, typing
+
+Classes:
+- Priority(Enum) [line 17] — values: LOW, MEDIUM, HIGH, CRITICAL
+    - weight(self) [line 23] — returns numeric weight for each priority level
+    - __lt__(self, other) [line 32] — enables priority comparison via < operator
+
+- Status(Enum) [line 36] — values: TODO, IN_PROGRESS, BLOCKED, DONE, CANCELLED
+    - active_states(cls) [line 44] — classmethod, returns non-terminal states
+    - is_terminal(self) [line 47] — returns True if status is DONE or CANCELLED
+
+- Tag (dataclass) [line 54]
+    - __post_init__(self) [line 58] — validates tag on creation
+    - __str__(self) [line 62] — string representation
+
+- Task (dataclass) [line 69]
+    - is_overdue(self) -> bool [line 84] — property, checks due_date vs now
+    - age_days(self) -> int [line 90] — property, days since creation
+    - subtask_count(self) -> int [line 94] — property
+    - completion_rate(self) -> float [line 98] — property, done subtasks / total
+    - transition(self, new_status) [line 106] — changes task status
+    - add_subtask(self, task) [line 112]
+    - add_tag(self, tag) [line 116]
+    - remove_tag(self, tag) [line 120]
+    - estimate_effort(self) [line 123] — computes score from base + subtask + overdue penalties
+    - __eq__(self, other) [line 132]
+    - __hash__(self) [line 137]
+    - __repr__(self) [line 140]
+    - to_dict(self) [line 143] — serializes task to dict
+    - from_dict(cls, data) [line 159] — classmethod, deserializes from dict; calls Status()
+
+- TaskFilter [line 172]
+    - __init__(self) [line 175]
+    - with_status(self) [line 178] — adds status filter (lambda)
+    - with_priority(self, priority) [line 182] — adds priority filter (lambda)
+    - with_tag(self, tag) [line 186] — adds tag filter (lambda)
+    - overdue_only(self) [line 190] — adds overdue filter (lambda)
+    - apply(self, tasks) [line 194] — runs all filters over task list
+    - count(self, tasks) [line 200]
+
+- TaskCollection [line 206]
+    - __init__(self, tasks) [line 209]
+    - add(self, task) [line 213]
+    - get(self, id) [line 216]
+    - remove(self, id) [line 219]
+    - all(self) [line 222]
+    - filter(self, filter_fn) [line 225] — called by run_batch in pipeline.py
+    - group_by_status(self) [line 228]
+    - sort_by_priority(self, reverse) [line 234]
+    - __len__(self) [line 237]
+    - __iter__(self) [line 240]
+    - __contains__(self, task) [line 243]
+
+Top-level functions:
+- _legacy_task_builder(data, priority) [line 249] — calls Priority(), Task(); legacy, likely dead code
+- _compute_score_v1(task) [line 255] — no callers found, likely dead code
+
+Cross-file calls FROM models.py:
+- from_dict() calls Status() [cross-class, same file]
+- _legacy_task_builder() calls TaskCollection() [line 164 via Status call edge]
+
+=== FILE: python/pipeline.py ===
+Imports: asyncio, functools, logging, time, contextlib
+Internal imports: models (Priority, Status, Task, TaskCollection), analyzer (TaskAnalyzer, MetricSnapshot)
+
+Protocols (interfaces):
+- Processor(Protocol) [line 24]
+    - process(self, task) async [line 26]
+- Sink(Protocol) [line 30]
+    - accept(self, task) async [line 32]
+
+Decorators / utilities:
+- retry(max_retries) [line 38] — returns decorator; wraps async fn with retry loop
+    - decorator(fn) [line 40]
+    - wrapper(*args) async [line 42] — retries on exception up to max_retries
+- timed(fn) [line 56] — decorator; logs execution time
+    - wrapper(*args) async [line 59]
+- validate_tasks(fn) [line 68] — decorator; validates TaskCollection before passing to fn
+    - wrapper(self, collection) async [line 71]
+- pipeline_scope(name) async [line 81] — @asynccontextmanager; logs pipeline start/end/duration
+
+Processor implementations:
+- PriorityEscalator [line 97] — implements Processor
+    - process(self, task) async [line 102] — @validate_tasks @timed; escalates priority if overdue
+- NormalizationProcessor [line 109] — implements Processor
+    - process(self, task) async [line 113] — @validate_tasks; normalizes task fields
+- StatusValidator [line 119] — implements Processor
+    - process(self, task) async [line 123] — @validate_tasks; validates status transitions
+
+Sink implementations:
+- CollectionSink [line 131] — implements Sink
+    - __init__(self, collection) [line 134]
+    - accept(self, task) async [line 137]
+- LoggingSink [line 141] — implements Sink
+    - accept(self, task) async [line 144]
+
+Pipeline orchestrator:
+- AnalysisPipeline [line 150]
+    - __init__(self, processors, sink, analyzer, config) [line 156]
+    - _run_task(self, task, processors) async [line 166] — runs task through each processor then sink
+    - run_batch(self, collection) async [line 179] — @retry; calls TaskCollection.filter(), PriorityEscalator, NormalizationProcessor, pipeline_scope, retry
+
+Top-level functions:
+- build_pipeline(config) [line 193] — constructs AnalysisPipeline; calls TaskCollection.filter(), AnalysisPipeline()
+- main() async [line 228] — entry point; calls TaskCollection(), build_pipeline()
+
+=== CALL GRAPH (cross-file) ===
+pipeline.py → models.py:
+  run_batch         → TaskCollection.filter  [line 181]
+  build_pipeline    → TaskCollection.filter  [line 203]
+  build_pipeline    → AnalysisPipeline       [line 223]
+  main              → TaskCollection()       [line 231]
+  main              → build_pipeline         [line 232]
+
+pipeline.py → analyzer (external module):
+  AnalysisPipeline.__init__ takes TaskAnalyzer, MetricSnapshot as params
+
+=== DEAD CODE ===
+Flagged (never called externally):
+- weight() in Priority — used internally by __lt__, safe to keep
+- __lt__() in Priority — used implicitly by sort operations, safe to keep
+- active_states() in Status — no call site found, candidate for removal
+- is_terminal() in Status — no call site found, candidate for removal
+- __post_init__() in Tag — called automatically by dataclass, NOT dead
+- __str__() in Tag — no explicit call site, but used by str(tag)
+- is_overdue, age_days, subtask_count, completion_rate in Task — properties, no direct call sites in this repo
+- _legacy_task_builder() [line 249] — name suggests legacy, no callers, REMOVE
+- _compute_score_v1() [line 255] — no callers, REMOVE
+
+=== ENTRY POINT ===
+main() in pipeline.py [line 228] — async, guarded by if __name__ == "__main__"
+
+=== UNPARSED FILES (modules detected only) ===
+C:     analyzer.c, main.c, task.c, task.h
+Go:    analyzer.go, manager.go, task.go
+Java:  Analyzer.java, Task.java, TaskManager.java
+Ruby:  analyzer.rb, main.rb, models.rb
+Rust:  main.rs, manager.rs, task.rs
