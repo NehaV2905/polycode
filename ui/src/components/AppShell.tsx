@@ -23,9 +23,10 @@ export default function AppShell() {
             onError={setError}
           />
         </div>
-        <div className="sidebar-bottom">
+        {/*<div className="sidebar-bottom">
           <ChatBox result={result} />
-        </div>
+        </div>*/}
+
       </aside>
       <MainPanel result={result} loading={loading} error={error} />
     </div>
